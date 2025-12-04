@@ -1,13 +1,6 @@
-# Database Proposal
+# Database Design
 
-## Recommended Service: Supabase
-For your requirement of a **free, online, and simple-to-configure** SQL database, I recommend **[Supabase](https://supabase.com/)**.
-
-### Why Supabase?
-- **Free Tier**: Generous free tier (500MB storage) which is sufficient for millions of market data records.
-- **PostgreSQL**: Built on standard PostgreSQL, the world's most advanced open-source relational database.
-- **Easy Configuration**: Provides a direct connection string compatible with Python libraries like `psycopg2` or `SQLAlchemy`.
-- **Web Interface**: Excellent dashboard to view and manage your data table manually if needed.
+For project simplicity, SQLite will serve as the underlying DBMS. The code structure will be designed to facilitate straightforward migration to alternative database management systems.
 
 ---
 
@@ -53,13 +46,19 @@ Stores individual buy/sell transactions. Each operation belongs to a specific `p
 | Column Name | Type | Description |
 | :--- | :--- | :--- |
 | **`id`** | `SERIAL` (PK) | Unique operation ID. |
-| `position_id` | `INTEGER` (FK) | Reference to the `positions` table. |
 | `contract_symbol` | `VARCHAR` (FK) | Reference to `options_contracts.symbol`. |
 | `operation_type` | `VARCHAR` | 'BUY' or 'SELL'. |
 | `quantity` | `INTEGER` | Number of contracts traded. |
 | `price` | `DECIMAL` | Premium per contract at the time of trade. |
 | `operation_date` | `TIMESTAMP` | When the trade occurred. |
 
+### 5. Table: `position_contains_operations`
+Represents the many-to-many relationship between `positions` and `operations`.
+
+| Column Name | Type | Description |
+| :--- | :--- | :--- |
+| **`position_id`** | `INTEGER` (FK) | Reference to the `positions` table. |
+| `operation_id` | `INTEGER` (FK) | Reference to the `operations` table. |
 
 ### Observations
 
@@ -72,38 +71,44 @@ CREATE TABLE options_contracts (
     symbol VARCHAR(50) PRIMARY KEY,
     underlying_symbol VARCHAR(20),
     type VARCHAR(10),
-    expiration_date TIMESTAMP,
-    strike DECIMAL(10, 3),
+    expiration_date TEXT, -- SQLite uses TEXT for timestamps
+    strike DECIMAL(12, 3),
     description TEXT
 );
 
 -- Create Prices Table
 CREATE TABLE market_prices (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     contract_symbol VARCHAR(50) REFERENCES options_contracts(symbol),
-    price DECIMAL(10, 3),
-    timestamp TIMESTAMP,
+    price DECIMAL(12, 3),
+    timestamp TEXT,
     volume INTEGER
 );
 
 -- Create Positions Table (The Strategy/Container)
 -- Represents a high-level position or strategy (e.g., "Mariposa GGAL")
 CREATE TABLE positions (
-    id SERIAL PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(100),
     description TEXT,
     status VARCHAR(20) DEFAULT 'OPEN', -- OPEN, CLOSED
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Operations Table (Individual Trades linked to a Position)
+-- Create Operations Table (Individual Trades)
 CREATE TABLE operations (
-    id SERIAL PRIMARY KEY,
-    position_id INTEGER REFERENCES positions(id),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     contract_symbol VARCHAR(50) REFERENCES options_contracts(symbol),
     operation_type VARCHAR(4) CHECK (operation_type IN ('BUY', 'SELL')),
     quantity INTEGER NOT NULL,
-    price DECIMAL(10, 3) NOT NULL, -- Premium per contract
-    operation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    price DECIMAL(12, 3) NOT NULL, -- Premium per contract
+    operation_date TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Position-Operations Link Table (Many-to-Many)
+CREATE TABLE position_contains_operations (
+    position_id INTEGER REFERENCES positions(id),
+    operation_id INTEGER REFERENCES operations(id),
+    PRIMARY KEY (position_id, operation_id)
 );
 ```

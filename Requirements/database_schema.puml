@@ -5,40 +5,47 @@ entity "options_contracts" {
   --
   underlying_symbol : VARCHAR(20)
   type : VARCHAR(10)
-  expiration_date : TIMESTAMP
+  expiration_date : TEXT
+  strike : DECIMAL(12, 3)
   description : TEXT
 }
 
 entity "market_prices" {
-  *id : SERIAL <<PK>>
+  *id : INTEGER <<PK>>
   --
   contract_symbol : VARCHAR(50) <<FK>>
-  price : DECIMAL(10, 3)
-  timestamp : TIMESTAMP
+  price : DECIMAL(12, 3)
+  timestamp : TEXT
   volume : INTEGER
 }
 
+entity "positions" {
+  *id : INTEGER <<PK>>
+  --
+  name : VARCHAR(100)
+  description : TEXT
+  status : VARCHAR(20)
+  created_at : TEXT
+}
+
 entity "operations" {
-  *id : SERIAL <<PK>>
+  *id : INTEGER <<PK>>
   --
   contract_symbol : VARCHAR(50) <<FK>>
   operation_type : VARCHAR(4)
   quantity : INTEGER
-  price : DECIMAL(10, 3)
-  operation_date : TIMESTAMP
+  price : DECIMAL(12, 3)
+  operation_date : TEXT
 }
 
-entity "positions" {
-  *id : SERIAL <<PK>>
-  --
-  contract_symbol : VARCHAR(50) <<FK>>
-  quantity : INTEGER
-  average_price : DECIMAL(10, 3)
-  last_updated : TIMESTAMP
+entity "position_contains_operations" {
+  *position_id : INTEGER <<PK, FK>>
+  *operation_id : INTEGER <<PK, FK>>
 }
 
 options_contracts ||..o{ market_prices : "has many"
-options_contracts ||..o{ operations : "has many"
-options_contracts ||..o| positions : "has one"
+options_contracts ||..o{ operations : "referenced in"
+positions ||..o{ position_contains_operations : "has"
+operations ||..o{ position_contains_operations : "included in"
 
 @enduml
