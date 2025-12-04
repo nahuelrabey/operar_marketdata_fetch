@@ -6,19 +6,24 @@ import os
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from login import get_token, get_user_credentials
+from login import authenticate
 
 class TestLogin(unittest.TestCase):
 
     @patch('login.requests.post')
-    def test_get_token_success(self, mock_post):
+    @patch('login.open') # Mock file opening
+    def test_authenticate_success(self, mock_open, mock_post):
         # Mock successful API response
         mock_response = MagicMock()
         mock_response.json.return_value = {'access_token': 'fake_token_123'}
         mock_response.raise_for_status.return_value = None
         mock_post.return_value = mock_response
 
-        token = get_token('user', 'pass')
+        # Mock file writing
+        mock_file = MagicMock()
+        mock_open.return_value.__enter__.return_value = mock_file
+
+        token = authenticate('user', 'pass')
         self.assertEqual(token, 'fake_token_123')
         
         # Verify correct API call
@@ -26,49 +31,22 @@ class TestLogin(unittest.TestCase):
             "https://api.invertironline.com/token",
             data={'username': 'user', 'password': 'pass', 'grant_type': 'password'}
         )
+        
+        # Verify token saved
+        mock_file.write.assert_called_with('fake_token_123')
 
     @patch('login.requests.post')
-    def test_get_token_failure(self, mock_post):
+    def test_authenticate_failure(self, mock_post):
         # Mock failed API response
+        import requests
         mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = Exception("HTTP Error")
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("HTTP Error")
         mock_post.return_value = mock_response
 
-        token = get_token('user', 'pass')
-        self.assertIsNone(token)
-
-    @patch('login.tk.Tk')
-    def test_get_user_credentials_mock_ui(self, mock_tk):
-        # This is a bit tricky to test fully without a display, 
-        # but we can check if the function runs and returns values 
-        # if we mock the internal widgets.
+        with self.assertRaises(Exception) as cm:
+            authenticate('user', 'pass')
         
-        # We'll mock the Entry widgets to return values
-        mock_root = MagicMock()
-        mock_tk.return_value = mock_root
-        
-        # We need to mock the local variables inside get_user_credentials
-        # Since we can't easily inject into the inner function scope of the real function,
-        # we will just verify that the function attempts to create the UI.
-        # For a true unit test of the UI logic, we'd need to refactor the code to be more testable,
-        # e.g. passing the root object or separating the view from the logic.
-        
-        # However, we can use patch to mock the 'entry_username.get' and 'entry_password.get' 
-        # IF they were accessible. They are local.
-        
-        # Instead, let's just verify it doesn't crash when called with mocked tk
-        # and that it returns the default empty strings if the loop is broken immediately
-        # or we can try to simulate the submit button click.
-        
-        # For now, let's just trust the logic test of get_token is the most important part
-        # and just ensure get_user_credentials calls tk.Tk()
-        
-        # To avoid blocking, we mock mainloop to do nothing
-        mock_root.mainloop.return_value = None
-        
-        # We can't easily retrieve the return values without simulating the button click
-        # which sets the closure variables.
-        pass
+        self.assertIn("Authentication failed", str(cm.exception))
 
 if __name__ == '__main__':
     unittest.main()
