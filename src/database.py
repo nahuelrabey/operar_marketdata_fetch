@@ -199,6 +199,26 @@ def add_operation(position_id: int, operation_data: OperationData) -> int:
     finally:
         conn.close()
 
+def remove_operation_from_position(position_id: int, operation_id: int) -> bool:
+    """
+    Removes the link between a position and an operation.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            "DELETE FROM position_contains_operations WHERE position_id = ? AND operation_id = ?",
+            (position_id, operation_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+
 def close_position(position_id: int) -> bool:
     """Updates status to 'CLOSED'."""
     conn = get_connection()
@@ -294,3 +314,36 @@ def get_latest_prices(symbols: List[str]) -> Dict[str, float]:
     conn.close()
     
     return {row[0]: row[1] for row in rows}
+
+def get_latest_prices_by_underlying(underlying_symbol: str) -> List[Dict[str, Any]]:
+    """
+    Retrieves the latest market price for all contracts of a given underlying.
+    Returns a list of dicts with keys: symbol, type, strike, price, timestamp.
+    """
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    query = '''
+    SELECT 
+        c.symbol, 
+        c.type, 
+        c.strike, 
+        mp.price, 
+        COALESCE(mp.broker_timestamp, mp.system_timestamp) as timestamp
+    FROM options_contracts c
+    JOIN market_prices mp ON c.symbol = mp.contract_symbol
+    WHERE c.underlying_symbol = ?
+    AND mp.system_timestamp = (
+        SELECT MAX(system_timestamp) 
+        FROM market_prices 
+        WHERE contract_symbol = c.symbol
+    )
+    ORDER BY c.strike ASC;
+    '''
+    
+    cursor.execute(query, (underlying_symbol,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    return [dict(row) for row in rows]

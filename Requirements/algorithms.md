@@ -2,7 +2,33 @@
 
 This document describes the backend functions and algorithms required to fulfill the use cases defined in `use_cases.md`.
 
-## 1. Use Case: Create a New Strategy
+## 1. Use Case: List Current Prices by Underlying
+
+### Function: `get_latest_prices_by_underlying(underlying_symbol: str) -> List[Dict]`
+**Goal**: Retrieve the latest market price for all contracts of a given underlying.
+
+**Algorithm**:
+1.  **Database Query**:
+    ```sql
+    SELECT 
+        c.symbol, 
+        c.type, 
+        c.strike, 
+        mp.price, 
+        COALESCE(mp.broker_timestamp, mp.system_timestamp) as timestamp
+    FROM options_contracts c
+    JOIN market_prices mp ON c.symbol = mp.contract_symbol
+    WHERE c.underlying_symbol = ?
+    AND mp.system_timestamp = (
+        SELECT MAX(system_timestamp) 
+        FROM market_prices 
+        WHERE contract_symbol = c.symbol
+    )
+    ORDER BY c.strike ASC;
+    ```
+2.  **Return**: List of dictionaries containing the query results.
+
+## 2. Use Case: Create a New Strategy
 
 ### Function: `create_position(name: str, description: str) -> int`
 **Goal**: Create a new strategy container.
@@ -15,7 +41,7 @@ This document describes the backend functions and algorithms required to fulfill
     ```
 3.  **Return**: The `id` of the newly created row.
 
-## 2. Use Case: Add a Trade to a Strategy
+## 3. Use Case: Add a Trade to a Strategy
 
 ### Function: `add_operation_to_position(position_id: int, contract_symbol: str, type: str, quantity: int, price: float) -> int`
 **Goal**: Record a trade and link it to the strategy.
@@ -36,7 +62,21 @@ This document describes the backend functions and algorithms required to fulfill
 4.  **Transaction Commit**: Save changes.
 5.  **Return**: The `operation_id`.
 
-## 3. Use Case: View Strategy Performance (Dashboard)
+## 4. Use Case: Remove a Trade from a Strategy
+
+### Function: `remove_operation_from_position(position_id: int, operation_id: int) -> bool`
+**Goal**: Remove a trade from a strategy.
+
+**Algorithm**:
+1.  **Database Delete**:
+    ```sql
+    DELETE FROM position_contains_operations 
+    WHERE position_id = ? AND operation_id = ?;
+    ```
+2.  **Optional**: Delete from `operations` if not used elsewhere.
+3.  **Return**: `True` if successful.
+
+## 5. Use Case: View Strategy Performance (Dashboard)
 
 ### Function: `get_position_details(position_id: int) -> dict`
 **Goal**: Retrieve the composition, current P&L, and P&L curve for a strategy.
@@ -65,7 +105,7 @@ This document describes the backend functions and algorithms required to fulfill
     - `current_pnl`: Float.
     - `pnl_curve`: `{x: S_T_vector, y: pnl_vector}`.
 
-## 4. Use Case: Close a Strategy
+## 5. Use Case: Close a Strategy
 
 ### Function: `close_position(position_id: int) -> bool`
 **Goal**: Mark a strategy as closed.

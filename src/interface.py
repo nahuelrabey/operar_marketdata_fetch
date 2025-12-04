@@ -21,6 +21,14 @@ class MarketDataApp(tk.Tk):
         # Initialize DB
         database.initialize_db()
         
+        # Configure Style
+        style = ttk.Style()
+        default_font = ('Helvetica', 11)
+        style.configure('.', font=default_font)
+        style.configure('Treeview', font=default_font, rowheight=25)
+        style.configure('Treeview.Heading', font=('Helvetica', 11, 'bold'))
+        self.option_add("*Font", default_font)
+        
         # Main Notebook
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill='both', expand=True)
@@ -28,10 +36,12 @@ class MarketDataApp(tk.Tk):
         # Tabs
         self.login_tab = LoginTab(self.notebook)
         self.market_data_tab = MarketDataTab(self.notebook)
+        self.prices_tab = PricesTab(self.notebook)
         self.strategies_tab = StrategiesTab(self.notebook)
         
         self.notebook.add(self.login_tab, text="Login")
         self.notebook.add(self.market_data_tab, text="Market Data")
+        self.notebook.add(self.prices_tab, text="Prices")
         self.notebook.add(self.strategies_tab, text="Strategies")
 
 class LoginTab(ttk.Frame):
@@ -153,6 +163,73 @@ class MarketDataTab(ttk.Frame):
         finally:
             self.btn_fetch.config(state='normal')
 
+class PricesTab(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        # Controls
+        controls_frame = ttk.Frame(self)
+        controls_frame.pack(fill='x', pady=10)
+        
+        ttk.Label(controls_frame, text="Underlying Symbol:").pack(side='left', padx=5)
+        self.entry_symbol = ttk.Entry(controls_frame)
+        self.entry_symbol.insert(0, "GGAL")
+        self.entry_symbol.pack(side='left', padx=5)
+        
+        self.btn_search = ttk.Button(controls_frame, text="Search", command=self.search_prices)
+        self.btn_search.pack(side='left', padx=5)
+        
+        # Table
+        columns = ('symbol', 'type', 'strike', 'last', 'time')
+        self.tree = ttk.Treeview(self, columns=columns, show='headings')
+        
+        self.tree.heading('symbol', text='Symbol')
+        self.tree.heading('type', text='Type')
+        self.tree.heading('strike', text='Strike')
+        self.tree.heading('last', text='Last Price')
+        self.tree.heading('time', text='Time')
+        
+        self.tree.column('symbol', width=100)
+        self.tree.column('type', width=50)
+        self.tree.column('strike', width=80)
+        self.tree.column('last', width=80)
+        self.tree.column('time', width=150)
+        
+        self.tree.pack(fill='both', expand=True, pady=10)
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscroll=scrollbar.set)
+        scrollbar.place(relx=1, rely=0, relheight=1, anchor='ne')
+
+    def search_prices(self):
+        symbol = self.entry_symbol.get()
+        if not symbol:
+            return
+            
+        # Clear existing
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+            
+        try:
+            results = database.get_latest_prices_by_underlying(symbol)
+            
+            if not results:
+                messagebox.showinfo("Info", "No prices found for this symbol.")
+                return
+                
+            for row in results:
+                self.tree.insert('', tk.END, values=(
+                    row['symbol'],
+                    row['type'],
+                    f"{row['strike']:,.2f}",
+                    f"{row['price']:,.2f}",
+                    row['timestamp']
+                ))
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
 class StrategiesTab(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
@@ -201,7 +278,11 @@ class StrategiesTab(ttk.Frame):
         self.canvas.get_tk_widget().pack(fill='both', expand=True, padx=10, pady=10)
         
         # Actions
-        ttk.Button(self.right_panel, text="Add Trade", command=self.add_trade_dialog).pack(pady=10)
+        actions_frame = ttk.Frame(self.right_panel)
+        actions_frame.pack(pady=10)
+        
+        ttk.Button(actions_frame, text="Add Trade", command=self.add_trade_dialog).pack(side='left', padx=5)
+        ttk.Button(actions_frame, text="Remove Trade", command=self.remove_trade_dialog).pack(side='left', padx=5)
         
         self.current_position_id = None
         self.refresh_list()
@@ -309,6 +390,56 @@ class StrategiesTab(ttk.Frame):
             # Refresh details
             pos = next(p for p in self.positions if p['id'] == self.current_position_id)
             self.load_strategy_details(pos)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def remove_trade_dialog(self):
+        if not self.current_position_id:
+            return
+            
+        # Get operations for current position
+        try:
+            details = database.get_position_details(self.current_position_id)
+            operations = details['operations']
+            
+            if not operations:
+                messagebox.showinfo("Info", "No trades to remove.")
+                return
+                
+            # Create a simple selection dialog (in real app, use a custom Toplevel with listbox)
+            # For now, we'll just list them and ask for ID (simplified for this iteration)
+            # Better approach: Show a list of operations in a new window
+            
+            win = tk.Toplevel(self)
+            win.title("Remove Trade")
+            win.geometry("400x300")
+            
+            lb = tk.Listbox(win)
+            lb.pack(fill='both', expand=True, padx=10, pady=10)
+            
+            for op in operations:
+                lb.insert(tk.END, f"ID {op['id']}: {op['operation_type']} {op['quantity']} {op['contract_symbol']} @ {op['price']}")
+                
+            def on_remove():
+                selection = lb.curselection()
+                if not selection:
+                    return
+                
+                index = selection[0]
+                op_to_remove = operations[index]
+                
+                if messagebox.askyesno("Confirm", f"Remove trade {op_to_remove['id']}?"):
+                    try:
+                        database.remove_operation_from_position(self.current_position_id, op_to_remove['id'])
+                        # Refresh
+                        pos = next(p for p in self.positions if p['id'] == self.current_position_id)
+                        self.load_strategy_details(pos)
+                        win.destroy()
+                    except Exception as e:
+                        messagebox.showerror("Error", str(e))
+            
+            ttk.Button(win, text="Remove Selected", command=on_remove).pack(pady=10)
+            
         except Exception as e:
             messagebox.showerror("Error", str(e))
 

@@ -58,6 +58,8 @@ MarketData/
     - Inserts new strategy with status 'OPEN'. Returns the new `position_id`.
 - **`add_operation(position_id: int, operation_data: OperationData) -> int`**:
     - Transactional insert into `operations` and linking in `position_contains_operations`. Returns `operation_id`.
+- **`remove_operation_from_position(position_id: int, operation_id: int) -> bool`**:
+    - Removes the link between position and operation. Returns `True` on success.
 - **`get_position_details(position_id: int) -> Dict[str, Any]`**:
     - **Output**: Dictionary with keys:
         - `composition`: `List[Dict[str, Any]]` (Symbol, Net Qty).
@@ -68,6 +70,9 @@ MarketData/
     - Updates status to 'CLOSED'. Returns `True` on success.
 - **`get_positions() -> List[Dict[str, Any]]`**:
     - Returns a list of all positions with their basic metadata.
+- **`get_latest_prices_by_underlying(underlying_symbol: str) -> List[Dict]`**:
+    - **Output**: List of dicts with keys: `symbol`, `type`, `strike`, `price`, `timestamp`.
+    - **Behavior**: Queries `market_prices` joined with `options_contracts` to get the latest price for each contract.
 
 ### 2.4. P&L Module (`src/pnl.py`)
 **Responsibility**: Perform financial calculations using efficient vector operations.
@@ -85,6 +90,9 @@ MarketData/
 
 - **Login Tab**: Invokes `login.py`.
 - **Market Data Tab**: Invokes `fetch_data.py` and `database.py` to save data.
+- **Prices Tab**:
+    - Invokes `database.get_latest_prices_by_underlying`.
+    - Displays results in a table (Treeview).
 - **Strategies Tab**:
     - Displays list of positions using `database.get_position_details`.
     - Shows **Composition** (Net Quantity).

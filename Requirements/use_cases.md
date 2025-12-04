@@ -8,7 +8,22 @@ This document details the user interactions and underlying logic for managing **
 
 ## User Cases
 
-### 1. Create a New Strategy (Position)
+### 1. List Current Prices by Underlying
+**User Story**: As a user, I want to view the latest market prices for all contracts associated with a specific underlying asset.
+- **UI Action**:
+    1.  Select an Underlying Symbol (e.g., "GGAL").
+    2.  Click "Refresh".
+- **Display**: A table showing:
+    - Contract Symbol.
+    - Type (Call/Put).
+    - Strike.
+    - Last Price.
+    - Timestamp (Broker timestamp if available, system timestamp otherwise).
+- **System Action**:
+    - Queries `market_prices` joined with `options_contracts`.
+    - Filters by `underlying_symbol` and selects the most recent `system_timestamp` for each contract.
+
+### 2. Create a New Strategy (Position)
 **User Story**: As a user, I want to define a new trading strategy so that I can group related trades together.
 - **UI Action**: Click "New Strategy" button.
 - **Input**:
@@ -16,7 +31,7 @@ This document details the user interactions and underlying logic for managing **
     - Description (Optional).
 - **System Action**: Creates a new record in the `positions` table with status 'OPEN'.
 
-### 2. Add a Trade (Operation) to a Strategy
+### 3. Add a Trade (Operation) to a Strategy
 **User Story**: As a user, I want to record a buy or sell order and link it to a specific strategy.
 - **UI Action**:
     1.  Select an active Strategy from a dropdown/list.
@@ -30,7 +45,17 @@ This document details the user interactions and underlying logic for managing **
     - Creates a record in `operations`.
     - Links the operation to the selected `position` via `position_contains_operations`.
 
-### 3. View Strategy Performance (Dashboard)
+### 4. Remove a Trade (Operation) from a Strategy
+**User Story**: As a user, I want to remove an incorrect trade from a strategy.
+- **UI Action**:
+    1.  Select a trade in the Composition list.
+    2.  Click "Remove Trade".
+- **System Action**:
+    - Deletes the link in `position_contains_operations`.
+    - Optionally deletes the record in `operations` (or keeps it as orphaned/archived).
+    - Recalculates strategy metrics.
+
+### 5. View Strategy Performance (Dashboard)
 **User Story**: As a user, I want to see how my strategies are performing.
 - **UI Action**: Navigate to "Strategies" tab.
 - **Display**: List of active positions showing:
@@ -43,7 +68,7 @@ This document details the user interactions and underlying logic for managing **
     - Calculates metrics on-the-fly.
     - Generates the P&L curve vectors (`S_T`, `total_pnl_curve`) for plotting.
 
-### 4. Close a Strategy
+### 6. Close a Strategy
 **User Story**: As a user, I want to mark a strategy as finished.
 - **UI Action**: Click "Close Strategy" on a specific position.
 - **System Action**: Updates `positions.status` to 'CLOSED'.
