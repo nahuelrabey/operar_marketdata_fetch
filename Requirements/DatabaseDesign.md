@@ -107,9 +107,3 @@ CREATE TABLE operations (
     operation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
-
-
-## Implementation Strategy
-1. **Connect**: Use `psycopg2` in Python to connect to Supabase.
-2. **Upsert Contracts**: When fetching data, first insert the contract details into `options_contracts`. Use `ON CONFLICT DO NOTHING` to avoid duplicates.
-3. **Insert Prices**: Insert the new price data into `market_prices`.
