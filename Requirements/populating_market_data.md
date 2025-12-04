@@ -63,6 +63,6 @@ This table stores dynamic price data. We extract this primarily from the `cotiza
 | :--- | :--- | :--- |
 | `contract_symbol` | `simbolo` | Direct mapping (Foreign Key). |
 | `price` | `cotizacion.ultimoPrecio` | Direct mapping. |
-| `market_timestamp` | `cotizacion.fechaHora` | Direct mapping. **Note**: If `fechaHora` is "0001-01-01...", use None. |
+| `broker_timestamp` | `cotizacion.fechaHora` | Direct mapping. **Note**: If `fechaHora` is "0001-01-01...", use None. |
 | `system_timestamp` | System Time | Use the current system time when the data is fetched/inserted. |
 | `volume` | `cotizacion.volumenNominal` | Direct mapping. |

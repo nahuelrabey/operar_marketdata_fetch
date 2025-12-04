@@ -82,7 +82,8 @@ CREATE TABLE market_prices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     contract_symbol VARCHAR(50) REFERENCES options_contracts(symbol),
     price DECIMAL(12, 3),
-    timestamp TEXT,
+    broker_timestamp TEXT,
+    system_timestamp TEXT,
     volume INTEGER
 );
 

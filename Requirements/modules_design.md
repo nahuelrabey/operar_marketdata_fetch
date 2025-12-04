@@ -39,7 +39,7 @@ MarketData/
     - Saves raw data to `data/`.
     - **Data Population Strategy** (from `populating_market_data.md`):
         - Maps JSON fields to `ContractData` and `PriceData`.
-        - Handles `timestamp` splitting (`market_timestamp` vs `system_timestamp`).
+        - Handles `timestamp` splitting (`broker_timestamp` vs `system_timestamp`).
         - Parses `description` to extract `strike`.
 
 ### 2.3. Database Module (`src/database.py`)
@@ -103,7 +103,7 @@ class ContractData(TypedDict):
 class PriceData(TypedDict):
     contract_symbol: str
     price: float
-    market_timestamp: str | None
+    broker_timestamp: str | None
     system_timestamp: str
     volume: int
 
