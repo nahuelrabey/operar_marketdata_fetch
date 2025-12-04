@@ -1,0 +1,44 @@
+@startuml
+
+entity "options_contracts" {
+  *symbol : VARCHAR(50) <<PK>>
+  --
+  underlying_symbol : VARCHAR(20)
+  type : VARCHAR(10)
+  expiration_date : TIMESTAMP
+  description : TEXT
+}
+
+entity "market_prices" {
+  *id : SERIAL <<PK>>
+  --
+  contract_symbol : VARCHAR(50) <<FK>>
+  price : DECIMAL(10, 3)
+  timestamp : TIMESTAMP
+  volume : INTEGER
+}
+
+entity "operations" {
+  *id : SERIAL <<PK>>
+  --
+  contract_symbol : VARCHAR(50) <<FK>>
+  operation_type : VARCHAR(4)
+  quantity : INTEGER
+  price : DECIMAL(10, 3)
+  operation_date : TIMESTAMP
+}
+
+entity "positions" {
+  *id : SERIAL <<PK>>
+  --
+  contract_symbol : VARCHAR(50) <<FK>>
+  quantity : INTEGER
+  average_price : DECIMAL(10, 3)
+  last_updated : TIMESTAMP
+}
+
+options_contracts ||..o{ market_prices : "has many"
+options_contracts ||..o{ operations : "has many"
+options_contracts ||..o| positions : "has one"
+
+@enduml
