@@ -5,7 +5,7 @@ import os
 import re
 from datetime import datetime
 from typing import List, Dict, Any, Tuple
-from .database import ContractData, PriceData
+from database import ContractData, PriceData
 
 # API Configuration
 BASE_URL = "https://api.invertironline.com/api/v2"

@@ -2,3 +2,6 @@ token.txt
 __pycache__/
 *.pyc
 .venv
+*.db
+*.json
+*.csv
