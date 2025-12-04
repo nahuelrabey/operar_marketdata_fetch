@@ -1,6 +1,6 @@
 # System Modules Design
 
-This document outlines the complete design of the system, consolidating requirements from `DatabaseDesign.md`, `algorithms.md`, `populating_market_data.md`, and `profit_loss.md`.
+This document outlines the complete design of the system, consolidating requirements from `database_design.md`, `algorithms.md`, `populating_market_data.md`, and `profit_loss.md`.
 
 ## 1. Proposed File Structure
 
