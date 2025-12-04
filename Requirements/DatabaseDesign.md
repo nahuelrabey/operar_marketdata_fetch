@@ -27,7 +27,8 @@ Stores the price information fetched at specific times. This table will grow eve
 | **`id`** | `SERIAL` (PK) | Auto-incrementing unique ID. |
 | `contract_symbol` | `VARCHAR` (FK) | Foreign Key referencing `options_contracts.symbol`. |
 | `price` | `DECIMAL` | The last price (`ultimoPrecio`) |
-| `timestamp` | `TIMESTAMP` | The time of the data point (`fechaHora`). |
+| `market_timestamp` | `TIMESTAMP` | The time of the data point (`fechaHora`). |
+| `system_timestamp` | `TIMESTAMP` | The time of the system when the data was fetched. |
 | `volume` | `INTEGER` | Optional: Volume traded (`volumenNominal`). |
 
 ### 3. Table: `positions` (Strategy Container)

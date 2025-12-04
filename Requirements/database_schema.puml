@@ -15,7 +15,8 @@ entity "market_prices" {
   --
   contract_symbol : VARCHAR(50) <<FK>>
   price : DECIMAL(12, 3)
-  timestamp : TEXT
+  market_timestamp : TEXT
+  system_timestamp : TEXT
   volume : INTEGER
 }
 
