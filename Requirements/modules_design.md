@@ -27,51 +27,58 @@ MarketData/
 ### 2.1. Login Module (`src/login.py`)
 **Responsibility**: Handle authentication with the Invertir Online API.
 
-- **`authenticate(username, password) -> token`**:
-    - Authenticates against the API.
-    - Stores the token in `token.txt`.
+- **`authenticate(username: str, password: str) -> str`**:
+    - **Input**: User credentials.
+    - **Output**: The authentication token as a string.
+    - **Behavior**: Authenticates against the API and stores the token in `token.txt`.
 
 ### 2.2. FetchData Module (`src/fetch_data.py`)
 **Responsibility**: Retrieve market data and map it to the domain model.
 
-- **`fetch_option_chain(symbol, token) -> List[ContractData]`**:
-    - Requests option chain from API.
-    - Saves raw data to `data/`.
-    - **Data Population Strategy** (from `populating_market_data.md`):
-        - Maps JSON fields to `ContractData` and `PriceData`.
-        - Handles `timestamp` splitting (`broker_timestamp` vs `system_timestamp`).
-        - Parses `description` to extract `strike`.
+- **`fetch_option_chain(symbol: str, token: str) -> List[ContractData]`**:
+    - **Input**: Underlying symbol (e.g., "GGAL") and auth token.
+    - **Output**: List of `ContractData` dictionaries.
+    - **Behavior**:
+        - Requests option chain from API.
+        - Saves raw data to `data/`.
+        - **Data Population Strategy**: Maps JSON fields to `ContractData` and `PriceData`, handling timestamp splitting and strike extraction.
 
 ### 2.3. Database Module (`src/database.py`)
 **Responsibility**: Manage SQLite database interactions and implement business algorithms.
 
-- **`initialize_db()`**: Creates tables (`options_contracts`, `market_prices`, `positions`, `operations`, `position_contains_operations`).
-- **`upsert_contract(contract_data)`**: Inserts/Updates contract details.
-- **`insert_market_price(price_data)`**: Logs new price data.
+- **`initialize_db() -> None`**:
+    - Creates tables if they don't exist.
+- **`upsert_contract(contract_data: ContractData) -> None`**:
+    - Inserts or updates contract details.
+- **`insert_market_price(price_data: PriceData) -> int`**:
+    - Logs new price data. Returns the new row ID.
 
 **CRUD Algorithms** (from `algorithms.md`):
-- **`create_position(name, description)`**:
-    - Inserts new strategy with status 'OPEN'.
-- **`add_operation(position_id, operation_data)`**:
-    - Transactional insert into `operations` and linking in `position_contains_operations`.
-- **`get_position_details(position_id)`**:
-    - Aggregates operations to calculate **Net Quantity** per contract.
-    - Determines if the position is effectively closed (Net Qty = 0).
-- **`close_position(position_id)`**:
-    - Updates status to 'CLOSED'.
+- **`create_position(name: str, description: str) -> int`**:
+    - Inserts new strategy with status 'OPEN'. Returns the new `position_id`.
+- **`add_operation(position_id: int, operation_data: OperationData) -> int`**:
+    - Transactional insert into `operations` and linking in `position_contains_operations`. Returns `operation_id`.
+- **`get_position_details(position_id: int) -> Dict[str, Any]`**:
+    - **Output**: Dictionary with keys:
+        - `composition`: `List[Dict[str, Any]]` (Symbol, Net Qty).
+        - `current_pnl`: `float`.
+        - `pnl_curve`: `Dict[str, np.ndarray]` (Vectors for X and Y axis).
+    - **Behavior**: Aggregates operations, calculates Net Quantity, and calls P&L module.
+- **`close_position(position_id: int) -> bool`**:
+    - Updates status to 'CLOSED'. Returns `True` on success.
+- **`get_positions() -> List[Dict[str, Any]]`**:
+    - Returns a list of all positions with their basic metadata.
 
 ### 2.4. P&L Module (`src/pnl.py`)
 **Responsibility**: Perform financial calculations using efficient vector operations.
 
 **Logic** (from `profit_loss.md`):
-- **`calculate_pnl(operations, current_prices_map) -> (total, details)`**:
-    - Uses `numpy` to calculate $P\&L = Quantity_{signed} \times (Price_{current} - Price_{entry})$.
-- **`calculate_pnl_curve_at_finish(operations, current_underlying, ...)`**:
-    - Simulates underlying price range ($S_T$).
-    - Calculates vectorized payoff:
-        - Call: $max(S_T - K, 0)$
-        - Put: $max(K - S_T, 0)$
-    - Returns vectors for plotting the P&L curve at expiration.
+- **`calculate_pnl(operations: List[Dict], current_prices_map: Dict[str, float]) -> Tuple[float, np.ndarray]`**:
+    - **Output**: Total P&L (float) and a vector of P&L per leg.
+    - **Behavior**: Uses `numpy` to calculate $P\&L = Quantity_{signed} \times (Price_{current} - Price_{entry})$.
+- **`calculate_pnl_curve_at_finish(operations: List[Dict], current_underlying_price: float, range_pct: float = 0.2, steps: int = 100) -> Tuple[np.ndarray, np.ndarray]`**:
+    - **Output**: Tuple of `(S_T_vector, total_pnl_curve_vector)`.
+    - **Behavior**: Simulates underlying price range and calculates vectorized payoff for Calls and Puts.
 
 ### 2.5. Interface Module (`src/interface.py`)
 **Responsibility**: Provide the GUI.
@@ -90,7 +97,7 @@ MarketData/
 ## 3. Data Structures
 
 ```python
-from typing import TypedDict, List
+from typing import TypedDict, List, Optional
 
 class ContractData(TypedDict):
     symbol: str
@@ -103,7 +110,7 @@ class ContractData(TypedDict):
 class PriceData(TypedDict):
     contract_symbol: str
     price: float
-    broker_timestamp: str | None
+    broker_timestamp: Optional[str]
     system_timestamp: str
     volume: int
 

@@ -7,6 +7,8 @@ For project simplicity, SQLite will serve as the underlying DBMS. The code struc
 ## Proposed Table Structure
 To optimize storage and keep data organized, we should normalize the data into two tables: one for the static contract details and one for the time-series price data.
 
+![Database Diagram](./imgs/database_schema.png)
+
 ### 1. Table: `options_contracts`
 Stores the static information about the option symbol. This data rarely changes.
 
