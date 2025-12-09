@@ -60,15 +60,12 @@ MarketData/
     - Transactional insert into `operations` and linking in `position_contains_operations`. Returns `operation_id`.
 - **`remove_operation_from_position(position_id: int, operation_id: int) -> bool`**:
     - Removes the link between position and operation. Returns `True` on success.
-- **`get_position_details(position_id: int) -> Dict[str, Any]`**:
-    - **Output**: Dictionary with keys:
-        - `composition`: `List[Dict[str, Any]]` (Symbol, Net Qty).
-        - `current_pnl`: `float`.
-        - `pnl_curve`: `Dict[str, np.ndarray]` (Vectors for X and Y axis).
+- **`get_position_details(position_id: int) -> PositionDetails`**:
+    - **Output**: Returns a `PositionDetails` dictionary containing composition and P&L data.
     - **Behavior**: Aggregates operations, calculates Net Quantity, and calls P&L module.
 - **`close_position(position_id: int) -> bool`**:
     - Updates status to 'CLOSED'. Returns `True` on success.
-- **`get_positions() -> List[Dict[str, Any]]`**:
+- **`get_positions() -> List[PositionData]`**:
     - Returns a list of all positions with their basic metadata.
 - **`get_latest_prices_by_underlying(underlying_symbol: str) -> List[Dict]`**:
     - **Output**: List of dicts with keys: `symbol`, `type`, `strike`, `price`, `timestamp`.
@@ -105,7 +102,7 @@ MarketData/
 ## 3. Data Structures
 
 ```python
-from typing import TypedDict, List, Optional
+from typing import TypedDict, List, Optional, Dict, Any
 
 class ContractData(TypedDict):
     symbol: str
@@ -128,4 +125,20 @@ class OperationData(TypedDict):
     quantity: int
     price: float
     operation_date: str
+
+class PositionComposition(TypedDict):
+    symbol: str
+    net_quantity: int
+
+class PositionDetails(TypedDict):
+    composition: List[PositionComposition]
+    current_pnl: float
+    pnl_curve: Dict[str, Any] # values are np.ndarray
+
+class PositionData(TypedDict):
+    id: int
+    name: str
+    description: str
+    status: str
+    created_at: str
 ```
