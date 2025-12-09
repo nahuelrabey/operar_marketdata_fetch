@@ -99,7 +99,7 @@ MarketData/
 
 ---
 
-## 3. Data Structures
+## 3. Type Definitions
 
 ```python
 from typing import TypedDict, List, Optional, Dict, Any
