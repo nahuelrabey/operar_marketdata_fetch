@@ -1,31 +1,8 @@
 import sqlite3
 import os
 from datetime import datetime
-from typing import List, Dict, Any, Optional, TypedDict, Union
+from src.type_definitions import *
 
-# --- Data Structures (from modules_design.md) ---
-
-class ContractData(TypedDict):
-    symbol: str
-    underlying_symbol: str
-    type: str
-    expiration_date: str
-    strike: float
-    description: str
-
-class PriceData(TypedDict):
-    contract_symbol: str
-    price: float
-    broker_timestamp: Optional[str]
-    system_timestamp: str
-    volume: int
-
-class OperationData(TypedDict):
-    contract_symbol: str
-    operation_type: str
-    quantity: int
-    price: float
-    operation_date: str
 
 # --- Database Connection ---
 
@@ -233,7 +210,7 @@ def close_position(position_id: int) -> bool:
     conn.close()
     return rows_affected > 0
 
-def get_positions() -> List[Dict[str, Any]]:
+def get_positions() -> List[PositionData]:
     """Returns a list of all positions with their basic metadata."""
     conn = get_connection()
     conn.row_factory = sqlite3.Row
@@ -246,7 +223,7 @@ def get_positions() -> List[Dict[str, Any]]:
     conn.close()
     return positions
 
-def get_position_details(position_id: int) -> Dict[str, Any]:
+def get_position_details(position_id: int) -> PositionDetails:
     """
     Aggregates operations to calculate Net Quantity per contract.
     Note: P&L calculation is delegated to pnl.py, this function prepares the data.

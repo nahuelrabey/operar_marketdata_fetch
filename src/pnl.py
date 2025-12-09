@@ -1,7 +1,8 @@
 import numpy as np
 from typing import List, Dict, Tuple, Any
+from src.type_definitions import OperationData
 
-def calculate_pnl(operations: List[Dict[str, Any]], current_prices_map: Dict[str, float]) -> Tuple[float, np.ndarray]:
+def calculate_pnl(operations: List[OperationData], current_prices_map: Dict[str, float]) -> Tuple[float, np.ndarray]:
     """
     Calculates the Current P&L for a set of operations.
     
@@ -49,12 +50,12 @@ def calculate_pnl(operations: List[Dict[str, Any]], current_prices_map: Dict[str
     
     return total_pnl, pnl_vec
 
-def calculate_pnl_curve_at_finish(operations: List[Dict[str, Any]], current_underlying_price: float, range_pct: float = 0.2, steps: int = 100) -> Tuple[np.ndarray, np.ndarray]:
+def calculate_pnl_curve_at_finish(operations: List[OperationData], current_underlying_price: float, range_pct: float = 0.2, steps: int = 100) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generates the P&L curve at expiration.
     
     Args:
-        operations: List of dicts (must include 'strike', 'contract_type'/'type', 'operation_type', 'quantity', 'price')
+        operations: List of OperationData (must include 'strike', 'contract_type'/'type', 'operation_type', 'quantity', 'price')
         current_underlying_price: Float, center of the simulation range.
         range_pct: Float, percentage range to simulate (e.g., 0.2 for +/- 20%).
         steps: Int, number of price points.
