@@ -71,11 +71,17 @@ $$ P\&L_{trade} = Quantity_{signed} \times (Price_{current} - Price_{entry}) $$
 ```python
 import numpy as np
 import pandas as pd
+from typing import List, Dict, TypedDict
 
-def calculate_pnl(operations, current_prices_map):
+# In the actual implementation, this class is imported from src.database
+from src.database import OperationData
+
+# For this logical definition, we assume OperationData has:
+# keys: 'contract_symbol', 'operation_type', 'quantity', 'price'
+
+def calculate_pnl(operations: List[OperationData], current_prices_map: Dict[str, float]):
     """
-    operations: List of dicts/objects with keys ['symbol', 'type', 'quantity', 'price']
-    current_prices_map: Dict { 'symbol': current_price_float }
+    Calculates P&L using vectorized operations.
     """
     
     # 1. Prepare Lists
@@ -85,11 +91,12 @@ def calculate_pnl(operations, current_prices_map):
     
     for op in operations:
         # Determine Signed Quantity
-        q = op['quantity'] if op['type'] == 'BUY' else -op['quantity']
+        q = op['quantity'] if op['operation_type'] == 'BUY' else -op['quantity']
         
         # Get Prices
         p_entry = op['price']
-        p_curr = current_prices_map.get(op['symbol'], p_entry) # Fallback to entry if no current price
+        # Fallback to entry if no current price
+        p_curr = current_prices_map.get(op['contract_symbol'], p_entry) 
         
         quantities.append(q)
         entry_prices.append(p_entry)
@@ -110,9 +117,9 @@ def calculate_pnl(operations, current_prices_map):
     return total_pnl, pnl_vec
 
 # Example Usage
-ops = [
-    {'symbol': 'GGAL_CALL', 'type': 'BUY', 'quantity': 10, 'price': 100},
-    {'symbol': 'GGAL_PUT', 'type': 'SELL', 'quantity': 10, 'price': 50}
+ops: List['OperationData'] = [
+    {'contract_symbol': 'GGAL_CALL', 'operation_type': 'BUY', 'quantity': 10, 'price': 100},
+    {'contract_symbol': 'GGAL_PUT', 'operation_type': 'SELL', 'quantity': 10, 'price': 50}
 ]
 prices = {
     'GGAL_CALL': 120, # Gain of 20 * 10 = 200
