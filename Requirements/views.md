@@ -36,5 +36,19 @@ FROM market_prices
 ORDER BY system_timestamp DESC;
 ```
 
+## Get prices from `market_prices` table ordered by `system_timestamp`
 
+Return the prices of a given contract symbol ordered by `system_timestamp`.
 
+```sql
+SELECT
+    contract_symbol,
+    price,
+    system_timestamp
+FROM
+    market_prices
+WHERE
+    contract_symbol = ?
+ORDER BY
+    system_timestamp DESC;
+```
