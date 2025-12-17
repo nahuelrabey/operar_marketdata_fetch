@@ -38,7 +38,7 @@ ORDER BY system_timestamp DESC;
 
 ## Get prices from `market_prices` table ordered by `system_timestamp`
 
-Return the prices of a given contract symbol ordered by `system_timestamp`.
+### Return the prices of a given contract symbol ordered by `system_timestamp`.
 
 ```sql
 SELECT
@@ -51,4 +51,22 @@ WHERE
     contract_symbol = ?
 ORDER BY
     system_timestamp DESC;
+```
+
+### Return the prices of all contracts ordered by `system_timestamp`.
+
+Get only the last price of each contract.
+
+
+
+
+## Get contract details from `options_contracts` table
+
+```sql
+SELECT
+    *
+FROM
+    options_contracts
+WHERE
+    symbol = ?;
 ```
