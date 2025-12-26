@@ -89,7 +89,7 @@ def _parse_price(item: Dict[str, Any], system_timestamp: str) -> PriceData:
         'price': cotizacion.get('ultimoPrecio', 0.0),
         'broker_timestamp': broker_timestamp,
         'system_timestamp': system_timestamp,
-        'volume': cotizacion.get('volumenNominal', 0)
+        'volume': int(cotizacion.get('volumenNominal', 0))
     }
 
 def _extract_strike_from_description(description: str) -> float:

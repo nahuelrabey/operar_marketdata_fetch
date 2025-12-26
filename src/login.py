@@ -17,6 +17,7 @@ def authenticate(username: str, password: str) -> str:
     }
     
     try:
+        # print(f"DEBUG: Payload: {payload}") # CAREFUL: Don't log passwords in prod
         response = requests.post(API_URL, data=payload)
         response.raise_for_status()
         
