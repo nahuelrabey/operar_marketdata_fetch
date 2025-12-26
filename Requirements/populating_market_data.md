@@ -53,7 +53,7 @@ This table stores static data. We extract this from the root level of the JSON o
 | `underlying_symbol` | `simboloSubyacente` | Direct mapping. |
 | `type` | `tipoOpcion` | Direct mapping ("Call" or "Put"). |
 | `expiration_date` | `fechaVencimiento` | Direct mapping (ISO 8601 format). |
-| `strike` | Derived from `descripcion` | **Logic**: Parse the description string. <br> Example: "Call GGAL 2,654.90 Vencimiento..." -> Extract "2,654.90" -> Convert to float `2654.90`. |
+| `strike` | Derived from `descripcion` | **Logic**: Split the description string by spaces. Iterate through each part, removing commas. The first part that is a valid number is identified as the strike price. <br> Example: "Call GGAL 2,654.90 Vencimiento..." -> Splits to ["Call", "GGAL", "2,654.90", ...] -> "2,654.90" becomes 2654.90. |
 | `description` | `descripcion` | Direct mapping. |
 
 ### 2. Populating `market_prices`

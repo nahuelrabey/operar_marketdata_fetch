@@ -73,8 +73,7 @@ This document describes the backend functions and algorithms required to fulfill
     DELETE FROM position_contains_operations 
     WHERE position_id = ? AND operation_id = ?;
     ```
-2.  **Optional**: Delete from `operations` if not used elsewhere.
-3.  **Return**: `True` if successful.
+2.  **Return**: `True` if successful.
 
 ## 5. Use Case: View Strategy Performance (Dashboard)
 

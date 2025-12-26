@@ -9,12 +9,11 @@ MarketData/
 ├── data/                   # Storage for fetched CSVs and raw logs
 ├── src/
 │   ├── __init__.py
-│   ├── main.py             # Application entry point
+│   ├── main.py             # Application entry point (CLI)
 │   ├── login.py            # Authentication logic
 │   ├── fetch_data.py       # API interaction & Data Mapping
 │   ├── database.py         # Database interactions & CRUD Algorithms
-│   ├── pnl.py              # P&L Calculations (Numpy)
-│   └── interface.py        # Graphical User Interface (Tkinter)
+│   └── pnl.py              # P&L Calculations (Numpy)
 ├── requirements.txt        # Python dependencies
 ├── .gitignore
 └── README.md
@@ -82,20 +81,15 @@ MarketData/
     - **Output**: Tuple of `(S_T_vector, total_pnl_curve_vector)`.
     - **Behavior**: Simulates underlying price range and calculates vectorized payoff for Calls and Puts.
 
-### 2.5. Interface Module (`src/interface.py`)
-**Responsibility**: Provide the GUI.
+### 2.5. Main Module (`src/main.py`)
+**Responsibility**: Entry point for the CLI application.
 
-- **Login Tab**: Invokes `login.py`.
-- **Market Data Tab**: Invokes `fetch_data.py` and `database.py` to save data.
-- **Prices Tab**:
-    - Invokes `database.get_latest_prices_by_underlying`.
-    - Displays results in a table (Treeview).
-- **Strategies Tab**:
-    - Displays list of positions using `database.get_position_details`.
-    - Shows **Composition** (Net Quantity).
-    - Shows **Current P&L** (via `pnl.py`).
-    - **Graph**: Plots the "P&L Curve at Finish" (via `pnl.py`).
-    - **Actions**: "New Strategy", "Add Trade", "Close Strategy".
+- **`main()`**:
+    - **Behavior**:
+        - Parses command-line arguments (using `argparse`).
+        - Routes commands to appropriate modules (`database`, `fetch_data`, etc.).
+        - Prints formatted output to stdout.
+
 
 ---
 
