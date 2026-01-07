@@ -24,10 +24,19 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # --- Fetch Command ---
-    fetch_parser = subparsers.add_parser("fetch", help="Fetch market data for a symbol")
-    fetch_parser.add_argument("symbol", help="Underlying symbol (e.g., GGAL)")
-    fetch_parser.add_argument("--username", help="IOL Username (overrides env var)")
-    fetch_parser.add_argument("--password", help="IOL Password (overrides env var)")
+    fetch_parser = subparsers.add_parser("fetch", help="Fetch market data")
+    fetch_subparsers = fetch_parser.add_subparsers(dest="fetch_command", help="Fetch actions")
+
+    # Fetch: Chain
+    fetch_chain = fetch_subparsers.add_parser("chain", help="Fetch option chain for a symbol")
+    fetch_chain.add_argument("symbol", help="Underlying symbol (e.g., GGAL)")
+    fetch_chain.add_argument("--username", help="IOL Username (overrides env var)")
+    fetch_chain.add_argument("--password", help="IOL Password (overrides env var)")
+    
+    # Fetch: Contracts
+    fetch_contracts = fetch_subparsers.add_parser("contracts", help="Fetch specific contracts from list")
+    fetch_contracts.add_argument("file", nargs="?", default="symbols.tmp.json", help="Path to symbols JSON file")
+    fetch_contracts.add_argument("token", nargs="?", help="Access Token")
 
     # --- Prices Command ---
     prices_parser = subparsers.add_parser("prices", help="List latest prices for a symbol")
@@ -70,6 +79,15 @@ def main():
     trade_remove.add_argument("--operation", type=int, required=True, help="Operation ID")
     trade_remove.add_argument("--strategy", type=int, required=True, help="Strategy ID (for context)")
 
+    # --- Token Commands ---
+    token_parser = subparsers.add_parser("token", help="Manage access token")
+    token_subparsers = token_parser.add_subparsers(dest="token_command", help="Token actions")
+
+    # Token: Update
+    token_update = token_subparsers.add_parser("update", help="Update access token")
+    token_update.add_argument("--username", help="IOL Username")
+    token_update.add_argument("--password", help="IOL Password")
+
     # Parse arguments
     args = parser.parse_args()
 
@@ -77,7 +95,16 @@ def main():
     database.initialize_db()
 
     if args.command == "fetch":
-        handle_fetch(args.symbol, args.username, args.password)
+        if args.fetch_command == "chain":
+            handle_fetch_chain(args.symbol, args.username, args.password)
+        elif args.fetch_command == "contracts":
+            handle_fetch_contracts(args.file, args.token)
+        else: 
+            # Backwards compatibility or default behavior if user typed just 'fetch GGAL' 
+            # (which is broken now that we have subparsers, but let's assume user follows new structure)
+            # Actually, `add_subparsers` makes the sub-command required usually unless configured otherwise.
+            fetch_parser.print_help()
+
     elif args.command == "prices":
         handle_prices(args.symbol)
     elif args.command == "strategy":
@@ -98,10 +125,15 @@ def main():
             handle_trade_remove(args.strategy, args.operation)
         else:
             trade_parser.print_help()
+    elif args.command == "token":
+        if args.token_command == "update":
+            handle_token_update(args.username, args.password)
+        else:
+            token_parser.print_help()
     else:
         parser.print_help()
 
-def handle_fetch(symbol: str, cli_user: str = None, cli_pass: str = None):
+def handle_fetch_chain(symbol: str, cli_user: str = None, cli_pass: str = None):
     print(f"Authenticating...")
 
     try:
@@ -115,7 +147,8 @@ def handle_fetch(symbol: str, cli_user: str = None, cli_pass: str = None):
              print("OR set IOL_USERNAME and IOL_PASSWORD environment variables.")
              return
 
-        token = login.authenticate(username, password)
+        auth_response = login.authenticate(username, password)
+        token = auth_response['access_token']
         print(f"Fetching data for {symbol}...")
         contracts, prices = fetch_data.fetch_option_chain(symbol, token)
         
@@ -135,6 +168,32 @@ def handle_fetch(symbol: str, cli_user: str = None, cli_pass: str = None):
         
     except Exception as e:
         print(f"Error fetching data: {e}")
+
+def handle_fetch_contracts(file_path: str, token: str):
+    # Defaults
+    file_path = file_path or "symbols.tmp.json"
+    token_path = "token.txt"
+    
+    try:
+        # Try to load token from file if not provided
+        if not token:
+            if os.path.exists(token_path):
+                with open(token_path, 'r', encoding='utf-8') as f:
+                    token = f.read().strip()
+                print(f"Loaded token from {token_path}")
+            else:
+                print(f"Error: Token not provided and {token_path} not found.")
+                return # Exit gracefully
+        
+        # Check symbols file
+        if not os.path.exists(file_path):
+             print(f"Error: Symbols file '{file_path}' not found.")
+             return
+
+        fetch_data.process_symbols_list(file_path, token)
+        print("Done.")
+    except Exception as e:
+        print(f"Error: {e}")
 
 def handle_prices(symbol: str):
     prices = database.get_latest_prices_by_underlying(symbol)
@@ -275,6 +334,34 @@ def handle_trade_remove(strategy_id: int, operation_id: int):
              print("Failed to remove trade.")
     except Exception as e:
         print(f"Error removing trade: {e}")
+
+def handle_token_update(cli_user: str = None, cli_pass: str = None):
+    print("Updating access token...")
+    try:
+        # Prioritize CLI args, then Env vars
+        username = cli_user or os.environ.get("IOL_USERNAME", "")
+        password = cli_pass or os.environ.get("IOL_PASSWORD", "")
+        
+        if not username or not password:
+             print("Error: Username and Password are required.")
+             print("Please provide them via --username and --password arguments")
+             print("OR set IOL_USERNAME and IOL_PASSWORD environment variables.")
+             return
+
+        auth_data = login.authenticate(username, password)
+        
+        expires_in = auth_data.get('expires_in')
+        issued = auth_data.get('.issued')
+        expires = auth_data.get('.expires')
+        
+        print("\nToken updated successfully.")
+        if expires:
+            print(f"Token expires at: {expires}")
+        elif expires_in:
+            print(f"Token expires in: {expires_in} seconds")
+            
+    except Exception as e:
+        print(f"Error updating token: {e}")
 
 if __name__ == "__main__":
     main()

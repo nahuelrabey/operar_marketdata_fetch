@@ -8,7 +8,7 @@ def authenticate(username: str, password: str) -> str:
     """
     Authenticates against the Invertir Online API.
     Stores the token in 'token.txt' in the root directory.
-    Returns the access token.
+    Returns the full authentication response dictionary (containing access_token, expires_in, etc.).
     """
     payload = {
         'username': username,
@@ -34,7 +34,7 @@ def authenticate(username: str, password: str) -> str:
         with open(token_path, 'w') as f:
             f.write(access_token)
             
-        return access_token
+        return data
         
     except requests.exceptions.RequestException as e:
         raise Exception(f"Authentication failed: {str(e)}")
