@@ -84,3 +84,32 @@ This document details the user interactions and underlying logic for managing **
     ```
 - **CLI Output**: Confirmation message.
 - **System Action**: Updates `positions.status` to 'CLOSED'.
+
+### 7. Update Access Token
+**User Story**: As a user, I want to manually trigger an update of the API access token to restore connectivity with the market data provider.
+- **CLI Command**:
+    ```bash
+    python main.py token update [--username <user> --password <pass>]
+    ```
+    *Note*: If credentials are not provided via flags, the system will attempt to use `IOL_USER` and `IOL_PASSWORD` environment variables.
+- **CLI Output**: Confirmation message with the new token expiration time.
+- **System Action**:
+    - Authenticates using provided credentials or environment variables.
+    - Updates the session access token.
+
+### 8. Fetch Options Contract Data
+**User Story**: As a user, I want to fetch and update the database with detailed information for a specific list of option contracts.
+- **CLI Command**:
+    ```bash
+    python src/main.py fetch contracts [<path_to_symbols_json>] [<access_token>]
+    ```
+    *Defaults*:
+    - `path_to_symbols_json`: `symbols.tmp.json`
+    - `access_token`: Reads from `token.txt`
+    
+    *Example*: `python src/fetch_data.py` (uses defaults) or `python src/fetch_data.py my_symbols.json`
+- **CLI Output**: Logs indicating progress for each symbol (e.g., "Fetching data for GFGC...", "Successfully updated...").
+- **System Action**:
+    - Reads symbols from the provided JSON file (or default).
+    - For each symbol, requests detailed contract data from the API.
+    - Upserts the contract information into `options_contracts`.

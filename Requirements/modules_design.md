@@ -28,7 +28,7 @@ MarketData/
 
 - **`authenticate(username: str, password: str) -> str`**:
     - **Input**: User credentials.
-    - **Output**: The authentication token as a string.
+    - **Output**: The full authentication response dictionary (containing `access_token`, `expires_in`, etc.).
     - **Behavior**: Authenticates against the API and stores the token in `token.txt`.
 
 ### 2.2. FetchData Module (`src/fetch_data.py`)
@@ -41,6 +41,13 @@ MarketData/
         - Requests option chain from API.
         - Saves raw data to `data/`.
         - **Data Population Strategy**: Maps JSON fields to `ContractData` and `PriceData`, handling timestamp splitting and strike extraction.
+- **`fetch_contract_data(symbol: str, token: str) -> ContractData`**:
+    - **Input**: Contract symbol and auth token.
+    - **Output**: `ContractData` dictionary.
+    - **Behavior**: Fetches detailed information for a single contract from the API (Title endpoint).
+- **`process_symbols_list(file_path: str, token: str) -> None`**:
+    - **Input**: Path to JSON file containing list of symbols, and auth token.
+    - **Behavior**: Iterates through the list, fetches data for each symbol, and upserts it into the database using `database.upsert_contract`.
 
 ### 2.3. Database Module (`src/database.py`)
 **Responsibility**: Manage SQLite database interactions and implement business algorithms.
