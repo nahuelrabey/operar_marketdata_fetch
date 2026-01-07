@@ -38,6 +38,11 @@ def main():
     fetch_contracts.add_argument("file", nargs="?", default="symbols.tmp.json", help="Path to symbols JSON file")
     fetch_contracts.add_argument("token", nargs="?", help="Access Token")
 
+    # Fetch: History (NEW)
+    fetch_history = fetch_subparsers.add_parser("history", help="Fetch historical prices for all known contracts")
+    fetch_history.add_argument("date_from", nargs='?', help="Start date YYYY-MM-DD (default: 2025-01-01)")
+    fetch_history.add_argument("--token", help="Access Token override")
+
     # --- Prices Command ---
     prices_parser = subparsers.add_parser("prices", help="List latest prices for a symbol")
     prices_parser.add_argument("symbol", help="Underlying symbol (e.g., GGAL)")
@@ -99,6 +104,8 @@ def main():
             handle_fetch_chain(args.symbol, args.username, args.password)
         elif args.fetch_command == "contracts":
             handle_fetch_contracts(args.file, args.token)
+        elif args.fetch_command == "history":
+            handle_fetch_history(args.date_from, args.token)
         else: 
             # Backwards compatibility or default behavior if user typed just 'fetch GGAL' 
             # (which is broken now that we have subparsers, but let's assume user follows new structure)
@@ -194,6 +201,23 @@ def handle_fetch_contracts(file_path: str, token: str):
         print("Done.")
     except Exception as e:
         print(f"Error: {e}")
+
+def handle_fetch_history(date_from: str = None, token_arg: str = None):
+    # Load token
+    token = token_arg
+    if not token and os.path.exists("token.txt"):
+        with open("token.txt", "r") as f:
+            token = f.read().strip()
+            
+    if not token:
+        print("Error: No access token provided and token.txt not found.")
+        return
+
+    # Default date
+    d_from = date_from if date_from else "2025-01-01"
+    
+    print(f"Fetching historical data starting from {d_from}...")
+    fetch_data.process_historical_data(d_from, token)
 
 def handle_prices(symbol: str):
     prices = database.get_latest_prices_by_underlying(symbol)

@@ -223,3 +223,27 @@ def get_latest_prices_by_underlying(underlying_symbol: str) -> List[Dict[str, An
         })
         
     return results
+
+def get_all_contract_symbols() -> List[str]:
+    """Retrieves all contract symbols from the database."""
+    client = get_client()
+    # Supabase allows selecting a single column
+    # If the list is huge, we might need pagination, but for now fetch all 
+    # (Supabase default max rows is usually 1000, might need manual range adjustment if > 1000)
+    # Let's assume < 1000 for now or that we adjust the range
+    response = client.table("options_contracts").select("symbol").execute()
+    
+    return [item['symbol'] for item in response.data]
+
+def insert_market_prices_batch(prices: List[PriceData]) -> None:
+    """Batch inserts market prices."""
+    client = get_client()
+    if not prices:
+        return
+        
+    # Supabase bulk insert
+    try:
+        response = client.table("market_prices").insert(prices).execute()
+    except Exception as e:
+        print(f"Error executing batch insert: {e}")
+        # Could implement retry or partial insert logic if needed

@@ -245,3 +245,79 @@ def process_symbols_list(file_path: str, token: str) -> None:
     except Exception as e:
         raise Exception(f"Failed to process symbols list: {e}")
 
+
+def fetch_historical_prices(symbol: str, date_from: datetime, date_to: datetime, token: str) -> List[PriceData]:
+    """
+    Fetches historical price series for a symbol.
+    Endpoint: /api/v2/bCBA/Titulos/{symbol}/Cotizacion/seriehistorica/{date_from}/{date_to}/sinAjustar
+    """
+    fmt = "%Y-%m-%d"
+    
+    str_from = date_from.strftime(fmt)
+    str_to = date_to.strftime(fmt)
+    
+    url = f"{BASE_URL}/bCBA/Titulos/{symbol}/Cotizacion/seriehistorica/{str_from}/{str_to}/sinAjustar"
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        
+        prices = []
+        system_timestamp = datetime.now().isoformat()
+        
+        for item in data:
+            if 'ultimoPrecio' in item and 'fechaHora' in item:
+                prices.append({
+                    'contract_symbol': symbol,
+                    'price': item.get('ultimoPrecio', 0.0),
+                    'broker_timestamp': item.get('fechaHora'),
+                    'system_timestamp': system_timestamp,
+                    'volume': int(item.get('volumenNominal', 0))
+                })
+        return prices
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Warning: Failed to fetch history for {symbol}: {e}")
+        return []
+    except Exception as e:
+        print(f"Error parsing history for {symbol}: {e}")
+        return []
+
+def process_historical_data(date_from_str: str, token: str) -> None:
+    """
+    Orchestrates collecting historical data for all symbols.
+    """
+    from src.database import get_all_contract_symbols, insert_market_prices_batch
+    
+    try:
+        # Parse Dates
+        date_from = datetime.strptime(date_from_str, "%Y-%m-%d")
+        date_to = datetime.now()
+        
+        # 1. Get Symbols
+        symbols = get_all_contract_symbols()
+        print(f"Found {len(symbols)} symbols to backfill.")
+        
+        # 2. Iterate
+        total_records = 0
+        for symbol in symbols:
+            print(f"Fetching history for {symbol}...")
+            prices = fetch_historical_prices(symbol, date_from, date_to, token)
+            
+            if prices:
+                # 3. Batch Insert
+                insert_market_prices_batch(prices)
+                count = len(prices)
+                total_records += count
+                print(f"  > Inserted {count} records.")
+            else:
+                print(f"  > No data.")
+                
+        print(f"Done. Total historical records inserted: {total_records}")
+        
+    except ValueError:
+        print("Error: Invalid date format. Please use YYYY-MM-DD.")
+    except Exception as e:
+        print(f"Critical Error in process_historical_data: {e}")
