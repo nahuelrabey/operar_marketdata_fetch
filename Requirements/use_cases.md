@@ -113,3 +113,16 @@ This document details the user interactions and underlying logic for managing **
     - Reads symbols from the provided JSON file (or default).
     - For each symbol, requests detailed contract data from the API.
     - Upserts the contract information into `options_contracts`.
+
+### 9. Fetch Historical Option Data
+**User Story**: As a user, I want to fetch historical prices for **all** option contracts in the database to backfill my market data.
+- **CLI Command**:
+    ```bash
+    python src/main.py fetch history [<date_from>]
+    ```
+    *Example*: `python src/main.py fetch history` (defaults to 01-01-2025) or `python src/main.py fetch history 2024-12-01`
+- **CLI Output**: Logs indicating progress (e.g., "Fetching history for GFGC... found X records...").
+- **System Action**:
+    - Retrieves all symbols from `options_contracts`.
+    - For each symbol, queries the API for historical series starting from `date_from`.
+    - Inserts the retrieved price series into `market_prices`.
