@@ -1,0 +1,3 @@
+# Main CLI
+
+::: src.main

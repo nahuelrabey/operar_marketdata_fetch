@@ -1,0 +1,38 @@
+site_name: MarketData Docs
+theme:
+  name: material
+  features:
+    - navigation.expand
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+
+nav:
+  - Home: index.md
+  - User Guide:
+    - CLI Usage: commands/cli_usage.md
+    - Workflows:
+      - Fetching Data: commands/fetch.md
+      - Strategy Management: commands/strategy.md
+  - API Reference:
+    - Database: api_reference/database.md
+    - Fetch Data: api_reference/fetch_data.md
+    - PnL Logic: api_reference/pnl.md
+    - Main CLI: api_reference/main.md

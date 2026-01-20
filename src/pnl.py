@@ -7,12 +7,11 @@ def calculate_pnl(operations: List[OperationData], current_prices_map: Dict[str,
     Calculates the Current P&L for a set of operations.
     
     Args:
-        operations: List of dicts with keys ['contract_symbol', 'operation_type', 'quantity', 'price']
-        current_prices_map: Dict { 'symbol': current_price_float }
+        operations: List of operation dictionaries.
+        current_prices_map: Dictionary mapping symbol to its current market price.
         
     Returns:
-        total_pnl: float
-        pnl_vec: np.ndarray (P&L per leg)
+        Tuple containing the total P&L (float) and a numpy array of P&L per leg.
     """
     if not operations:
         return 0.0, np.array([])
@@ -52,17 +51,16 @@ def calculate_pnl(operations: List[OperationData], current_prices_map: Dict[str,
 
 def calculate_pnl_curve_at_finish(operations: List[OperationData], current_underlying_price: float, range_pct: float = 0.2, steps: int = 100) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Generates the P&L curve at expiration.
+    Simulates the P&L curve at expiration based on underlying price movement.
     
     Args:
-        operations: List of OperationData (must include 'strike', 'contract_type'/'type', 'operation_type', 'quantity', 'price')
-        current_underlying_price: Float, center of the simulation range.
-        range_pct: Float, percentage range to simulate (e.g., 0.2 for +/- 20%).
-        steps: Int, number of price points.
+        operations: List of operations (must include strike and contract type).
+        current_underlying_price: Center price for the simulation range.
+        range_pct: Percentage range to simulate (e.g., 0.2 for +/- 20%).
+        steps: Number of price points in the simulation.
         
     Returns:
-        S_T: np.ndarray (The price vector)
-        total_pnl_curve: np.ndarray (The returns vector)
+        Tuple of (Prices Vector, P&L Vector).
     """
     if not operations:
         return np.array([]), np.array([])

@@ -12,9 +12,20 @@ BASE_URL = "https://api.invertironline.com/api/v2"
 
 def fetch_option_chain(symbol: str, token: str) -> Tuple[List[ContractData], List[PriceData]]:
     """
-    Fetches the option chain for a given underlying symbol.
-    Saves raw data to 'data/' folder.
-    Returns parsed ContractData and PriceData lists.
+    Fetches the full option chain for a given underlying symbol.
+
+    This function makes a single API call to 'Opciones', saves the raw JSON response 
+    to the 'data/' folder, and parses the response into contracts and prices.
+
+    Args:
+        symbol: The underlying symbol (e.g. 'GGAL').
+        token: Valid IOL Access Token.
+
+    Returns:
+        A tuple containing a list of ContractData and a list of PriceData.
+
+    Raises:
+        Exception: If the API request fails or parsing errors occur.
     """
     url = f"{BASE_URL}/bCBA/Titulos/{symbol}/Opciones"
     headers = {"Authorization": f"Bearer {token}"}
@@ -79,7 +90,15 @@ def _parse_contract(item: Dict[str, Any]) -> ContractData:
 
 def _parse_description(description: str) -> Dict[str, Any]:
     """
-    Parses 'Call GGAL 10,177.00 Vencimiento: 19/12/2025'
+    Parses a description string to extract metadata.
+    
+    Example: 'Call GGAL 10,177.00 Vencimiento: 19/12/2025'
+
+    Args:
+        description: The raw description string.
+
+    Returns:
+        Dict with keys: type, underlying, strike, expiration.
     """
     if not description:
         return {'type': None, 'underlying': None, 'strike': 0.0, 'expiration': None}
@@ -128,12 +147,6 @@ def _parse_price(item: Dict[str, Any], system_timestamp: str) -> PriceData:
     # Handle both structures: nested 'cotizacion' or top-level fields
     cotizacion = item.get('cotizacion', item) 
     
-    # For single title, price fields are top level in 'item' (except fechaHora might be top level too)
-    # But wait, looking at user JSON example:
-    # "cotizacion": { ... } is NOT in the new JSON?
-    # Actually the user JSON shows keys like "ultimoPrecio", "fechaHora" at ROOT level.
-    # So we need to handle that.
-    
     price = cotizacion.get('ultimoPrecio', 0.0)
     broker_timestamp = cotizacion.get('fechaHora')
     volume = int(cotizacion.get('volumenNominal', 0))
@@ -161,8 +174,15 @@ def _parse_price(item: Dict[str, Any], system_timestamp: str) -> PriceData:
 
 def _extract_strike_from_description(description: str) -> float:
     """
-    Extracts strike price from description.
+    Extracts strike price from description using heuristics.
+    
     Example: "Call GGAL 2,654.90 Vencimiento..." -> 2654.90
+
+    Args:
+        description: The description string.
+
+    Returns:
+        The extracted strike price or 0.0 if not found.
     """
     try:
         # Regex to find the number after the symbol (assuming format "Type Symbol Strike ...")
@@ -191,7 +211,16 @@ def _extract_strike_from_description(description: str) -> float:
 def fetch_contract_data(symbol: str, token: str) -> Tuple[ContractData, PriceData]:
     """
     Fetches detailed information for a specific contract symbol.
-    Returns both contract details and current market price data.
+
+    Args:
+        symbol: The contract symbol (e.g. 'GGALC4600O').
+        token: Access Token.
+
+    Returns:
+        Tuple of (ContractData, PriceData).
+
+    Raises:
+        Exception: If fetch fails.
     """
     url = f"{BASE_URL}/bCBA/Titulos/{symbol}"
     headers = {"Authorization": f"Bearer {token}"}
@@ -218,6 +247,10 @@ def fetch_contract_data(symbol: str, token: str) -> Tuple[ContractData, PriceDat
 def process_symbols_list(file_path: str, token: str) -> None:
     """
     Reads symbols from a JSON file and updates the database with their details.
+
+    Args:
+        file_path: Path to the JSON file containing a list of strings.
+        token: Access Token.
     """
     from src.database import upsert_contract, insert_market_price
     
@@ -249,7 +282,17 @@ def process_symbols_list(file_path: str, token: str) -> None:
 def fetch_historical_prices(symbol: str, date_from: datetime, date_to: datetime, token: str) -> List[PriceData]:
     """
     Fetches historical price series for a symbol.
-    Endpoint: /api/v2/bCBA/Titulos/{symbol}/Cotizacion/seriehistorica/{date_from}/{date_to}/sinAjustar
+    
+    Endpoint: `/api/v2/bCBA/Titulos/{symbol}/Cotizacion/seriehistorica/{date_from}/{date_to}/sinAjustar`
+
+    Args:
+        symbol: Contract symbol.
+        date_from: Start date object.
+        date_to: End date object.
+        token: Access Token.
+
+    Returns:
+        List of PriceData objects representing the history.
     """
     fmt = "%Y-%m-%d"
     
@@ -288,6 +331,14 @@ def fetch_historical_prices(symbol: str, date_from: datetime, date_to: datetime,
 def process_historical_data(date_from_str: str, token: str) -> None:
     """
     Orchestrates collecting historical data for all symbols.
+    
+    1. Fetches all known symbols from DB.
+    2. Iterates and calls `fetch_historical_prices` for each.
+    3. Batch inserts results to DB.
+
+    Args:
+        date_from_str: Start date in "YYYY-MM-DD" format.
+        token: Access Token.
     """
     from src.database import get_all_contract_symbols, insert_market_prices_batch
     
@@ -321,3 +372,4 @@ def process_historical_data(date_from_str: str, token: str) -> None:
         print("Error: Invalid date format. Please use YYYY-MM-DD.")
     except Exception as e:
         print(f"Critical Error in process_historical_data: {e}")
+

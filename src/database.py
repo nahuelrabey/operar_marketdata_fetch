@@ -15,6 +15,15 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 _client: Optional[Client] = None
 
 def get_client() -> Client:
+    """
+    Retrieves or initializes the Supabase client.
+
+    Returns:
+        The authenticated Supabase client instance.
+
+    Raises:
+        EnvironmentError: If SUPABASE_URL or SUPABASE_KEY are missing.
+    """
     global _client
     if _client is None:
         if not SUPABASE_URL or not SUPABASE_KEY:
@@ -26,7 +35,9 @@ def get_client() -> Client:
 
 def initialize_db() -> None:
     """
-    Checks connection to Supabase.
+    Checks connection to Supabase and verifies core tables exist.
+
+    This function performs a simple query to ensure connectivity. 
     Table creation is handled via external SQL scripts.
     """
     try:
@@ -41,13 +52,26 @@ def initialize_db() -> None:
 # --- CRUD Functions ---
 
 def upsert_contract(contract_data: ContractData) -> None:
-    """Inserts or updates contract details."""
+    """
+    Inserts or updates contract details in the 'options_contracts' table.
+
+    Args:
+        contract_data: Key-value pairs matching the table schema.
+    """
     client = get_client()
     # Supabase upsert requires dict keys to match column names
     client.table("options_contracts").upsert(contract_data).execute()
 
 def insert_market_price(price_data: PriceData) -> int:
-    """Logs new price data. Returns the new row ID if available."""
+    """
+    Logs new price data for a contract.
+
+    Args:
+        price_data: The market price information to insert.
+
+    Returns:
+        The ID of the inserted record, or -1 if failed.
+    """
     client = get_client()
     response = client.table("market_prices").insert(price_data).execute()
     if response.data and len(response.data) > 0:
@@ -55,7 +79,16 @@ def insert_market_price(price_data: PriceData) -> int:
     return -1
 
 def create_position(name: str, description: str) -> int:
-    """Inserts new strategy with status 'OPEN'. Returns the new position_id."""
+    """
+    Creates a new strategy position with status 'OPEN'.
+
+    Args:
+        name: Name of the strategy.
+        description: Brief description of the strategy.
+
+    Returns:
+        The ID of the newly created position.
+    """
     client = get_client()
     data = {"name": name, "description": description, "status": "OPEN"}
     response = client.table("positions").insert(data).execute()
@@ -64,13 +97,24 @@ def create_position(name: str, description: str) -> int:
     return -1
 
 def add_operation(position_id: int, operation_data: OperationData) -> int:
-    """Transactional insert into operations and linking in position_contains_operations."""
+    """
+    Adds a trade (operation) to a position.
+
+    Performs a two-step process:
+    1. Inserts the operation into the `operations` table.
+    2. Links it to the position in the `position_contains_operations` table.
+
+    Args:
+        position_id: The ID of the strategy/position.
+        operation_data: The details of the trade.
+
+    Returns:
+        The ID of the created operation.
+
+    Raises:
+        Exception: If the operation insert fails.
+    """
     client = get_client()
-    
-    # Supabase doesn't support complex multi-table transactions via client directly 
-    # in the same way SQL does (begin/commit), but we can do sequential inserts.
-    # If a failure occurs, we might have orphaned records. 
-    # RPC is recommended for true transactions, but we'll stick to sequential calls for logic CLI.
     
     # 1. Insert Operation
     op_resp = client.table("operations").insert(operation_data).execute()
@@ -88,6 +132,13 @@ def add_operation(position_id: int, operation_data: OperationData) -> int:
 def remove_operation_from_position(position_id: int, operation_id: int) -> bool:
     """
     Removes the link between a position and an operation.
+
+    Args:
+        position_id: The strategy ID.
+        operation_id: The operation ID to remove.
+
+    Returns:
+        True if the deletion was successful, False otherwise.
     """
     client = get_client()
     response = client.table("position_contains_operations")\
@@ -96,41 +147,54 @@ def remove_operation_from_position(position_id: int, operation_id: int) -> bool:
         .eq("operation_id", operation_id)\
         .execute()
     
-    # Optionally remove the operation itself if orphaned? 
-    # Design says "Optionally deletes the record". We'll skip that for safety/simplicity.
-    
     return len(response.data) > 0
 
 def close_position(position_id: int) -> bool:
-    """Updates status to 'CLOSED'."""
+    """
+    Updates a position's status to 'CLOSED'.
+
+    Args:
+        position_id: The ID of the position to close.
+
+    Returns:
+        True if the update was successful.
+    """
     client = get_client()
     response = client.table("positions").update({"status": "CLOSED"}).eq("id", position_id).execute()
     return len(response.data) > 0
 
 def get_positions() -> List[PositionData]:
-    """Returns a list of all positions with their basic metadata."""
+    """
+    Retrieves a list of all positions.
+
+    Returns:
+        List of position metadata (id, name, status, etc.).
+    """
     client = get_client()
     response = client.table("positions").select("*").order("created_at", desc=True).execute()
     return response.data
 
 def get_position_details(position_id: int) -> PositionDetails:
     """
-    Aggregates operations to calculate Net Quantity per contract.
+    Retrieves detailed information for a specific position.
+
+    This includes all individual operations and the calculated net composition 
+    (aggregated quantity per symbol).
+
+    Args:
+        position_id: The ID of the position.
+
+    Returns:
+        Object containing raw operations and the net portfolio composition.
     """
     client = get_client()
     
     # Query operations via the link table
-    # We want: Operation details + Contract details
-    # Path: position_contains_operations -> operations -> options_contracts
-    
-    # Select from link table, joining operations and their nested contracts
     response = client.table("position_contains_operations")\
         .select("operation:operations(*, contract:options_contracts(strike, type))")\
         .eq("position_id", position_id)\
         .execute()
         
-    # Response data structure will be list of { operation: { ..., contract: { ... } } }
-    
     # Flatten/Normalize
     operations = []
     for item in response.data:
@@ -161,8 +225,15 @@ def get_position_details(position_id: int) -> PositionDetails:
 
 def get_latest_prices(symbols: List[str]) -> Dict[str, float]:
     """
-    Batch query to get latest prices for a list of symbols.
-    Optimized to use resource embedding to fetch the latest price for each symbol.
+    Batch query to get existing latest prices for a list of symbols from the DB.
+
+    Optimized to use resource embedding to fetch the latest market_price for each symbol.
+
+    Args:
+        symbols: List of contract symbols.
+
+    Returns:
+        A dictionary mapping symbol -> latest price.
     """
     if not symbols:
         return {}
@@ -190,11 +261,15 @@ def get_latest_prices(symbols: List[str]) -> Dict[str, float]:
 def get_latest_prices_by_underlying(underlying_symbol: str) -> List[Dict[str, Any]]:
     """
     Retrieves the latest market price for all contracts of a given underlying.
-    Returns a list of dicts with keys: symbol, type, strike, price, timestamp.
+
+    Args:
+        underlying_symbol: The ticker of the underlying asset (e.g., 'GGAL').
+
+    Returns:
+        List of dicts with keys: symbol, type, strike, price, timestamp.
     """
     client = get_client()
     
-    # Similar strategy to get_latest_prices, but filtered by underlying
     response = client.table("options_contracts")\
         .select("symbol, type, strike, market_prices(price, system_timestamp, broker_timestamp)")\
         .eq("underlying_symbol", underlying_symbol)\
@@ -225,25 +300,32 @@ def get_latest_prices_by_underlying(underlying_symbol: str) -> List[Dict[str, An
     return results
 
 def get_all_contract_symbols() -> List[str]:
-    """Retrieves all contract symbols from the database."""
+    """
+    Retrieves all contract symbols currently stored in the database.
+
+    Returns:
+        List of symbol strings.
+    """
     client = get_client()
-    # Supabase allows selecting a single column
-    # If the list is huge, we might need pagination, but for now fetch all 
-    # (Supabase default max rows is usually 1000, might need manual range adjustment if > 1000)
-    # Let's assume < 1000 for now or that we adjust the range
     response = client.table("options_contracts").select("symbol").execute()
     
     return [item['symbol'] for item in response.data]
 
 def insert_market_prices_batch(prices: List[PriceData]) -> None:
-    """Batch inserts market prices."""
+    """
+    Batch inserts multiple market price records.
+
+    Uses Supabase upsert with ignore_duplicates=True to handle potential conflicts.
+
+    Args:
+        prices: List of PriceData objects.
+    """
     client = get_client()
     if not prices:
         return
         
-    # Supabase bulk insert
     try:
-        response = client.table("market_prices").insert(prices).execute()
+        response = client.table("market_prices").upsert(prices, ignore_duplicates=True).execute()
     except Exception as e:
         print(f"Error executing batch insert: {e}")
-        # Could implement retry or partial insert logic if needed
+

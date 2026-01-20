@@ -20,6 +20,10 @@ from src import database, fetch_data, pnl
 from src import login
 
 def main():
+    """
+    Entry point for the Market Data CLI.
+    Parses arguments and dispatches commands to handlers.
+    """
     parser = argparse.ArgumentParser(description="Market Data CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -141,6 +145,15 @@ def main():
         parser.print_help()
 
 def handle_fetch_chain(symbol: str, cli_user: str = None, cli_pass: str = None):
+    """
+    Handles fetching and saving the full option chain for a symbol.
+    Authenticates first to get a token.
+
+    Args:
+        symbol: The underlying ticker.
+        cli_user: Optional username override.
+        cli_pass: Optional password override.
+    """
     print(f"Authenticating...")
 
     try:
@@ -177,6 +190,13 @@ def handle_fetch_chain(symbol: str, cli_user: str = None, cli_pass: str = None):
         print(f"Error fetching data: {e}")
 
 def handle_fetch_contracts(file_path: str, token: str):
+    """
+    Handles fetching data for a specific list of contracts.
+
+    Args:
+        file_path: Path to the JSON file with symbols.
+        token: Access token (or loads from token.txt).
+    """
     # Defaults
     file_path = file_path or "symbols.tmp.json"
     token_path = "token.txt"
@@ -203,6 +223,13 @@ def handle_fetch_contracts(file_path: str, token: str):
         print(f"Error: {e}")
 
 def handle_fetch_history(date_from: str = None, token_arg: str = None):
+    """
+    Handles the bulk history fetch command.
+
+    Args:
+        date_from: Start date YYYY-MM-DD.
+        token_arg: Access token.
+    """
     # Load token
     token = token_arg
     if not token and os.path.exists("token.txt"):
@@ -220,6 +247,12 @@ def handle_fetch_history(date_from: str = None, token_arg: str = None):
     fetch_data.process_historical_data(d_from, token)
 
 def handle_prices(symbol: str):
+    """
+    Prints the latest prices for a symbol in a tabular format.
+
+    Args:
+        symbol: The underlying ticker.
+    """
     prices = database.get_latest_prices_by_underlying(symbol)
     if not prices:
         print(f"No prices found for {symbol}.")
@@ -240,6 +273,7 @@ def handle_prices(symbol: str):
     print(tabulate(table_data, headers=["Symbol", "Type", "Strike", "Price", "Timestamp"], tablefmt="simple"))
 
 def handle_strategy_new(name: str, description: str):
+    """Creates a new strategy."""
     try:
         new_id = database.create_position(name, description)
         print(f"Strategy created successfully. ID: {new_id}")
@@ -247,6 +281,7 @@ def handle_strategy_new(name: str, description: str):
         print(f"Error creating strategy: {e}")
 
 def handle_strategy_list():
+    """Lists all strategies."""
     positions = database.get_positions()
     if not positions:
         print("No strategies found.")
@@ -256,6 +291,12 @@ def handle_strategy_list():
     print(tabulate(data, headers=["ID", "Name", "Status", "Created At"], tablefmt="simple"))
 
 def handle_strategy_view(position_id: int):
+    """
+    Deep look into a strategy: shows composition, P&L, and generates a plot.
+
+    Args:
+        position_id: Strategy ID.
+    """
     try:
         details = database.get_position_details(position_id)
         # We need to calculate P&L here using pnl.py
@@ -330,12 +371,14 @@ def handle_strategy_view(position_id: int):
         print(f"Error viewing strategy: {e}")
 
 def handle_strategy_close(position_id: int):
+    """Closes a strategy."""
     if database.close_position(position_id):
         print(f"Strategy {position_id} closed.")
     else:
         print("Failed to close strategy.")
 
 def handle_trade_add(strategy_id: int, symbol: str, op_type: str, qty: int, price: float):
+    """Adds a trade to a strategy."""
     # Need operation_date, defaulting to now
     op_data = {
         'contract_symbol': symbol,
@@ -351,6 +394,7 @@ def handle_trade_add(strategy_id: int, symbol: str, op_type: str, qty: int, pric
         print(f"Error adding trade: {e}")
 
 def handle_trade_remove(strategy_id: int, operation_id: int):
+    """Removes a trade from a strategy."""
     try:
         if database.remove_operation_from_position(strategy_id, operation_id):
              print("Trade removed from strategy.")
@@ -360,6 +404,7 @@ def handle_trade_remove(strategy_id: int, operation_id: int):
         print(f"Error removing trade: {e}")
 
 def handle_token_update(cli_user: str = None, cli_pass: str = None):
+    """Updates the access token using credentials."""
     print("Updating access token...")
     try:
         # Prioritize CLI args, then Env vars
@@ -389,3 +434,4 @@ def handle_token_update(cli_user: str = None, cli_pass: str = None):
 
 if __name__ == "__main__":
     main()
+
