@@ -73,7 +73,7 @@ def insert_market_price(price_data: PriceData) -> int:
         The ID of the inserted record, or -1 if failed.
     """
     client = get_client()
-    response = client.table("market_prices").insert(price_data).execute()
+    response = client.table("options_historic_prices").insert(price_data).execute()
     if response.data and len(response.data) > 0:
         return response.data[0]['id']
     return -1
@@ -243,16 +243,16 @@ def get_latest_prices(symbols: List[str]) -> Dict[str, float]:
     # We query contracts and embed the latest market price
     # limit(1) on foreign table works in Supabase
     response = client.table("options_contracts")\
-        .select("symbol, market_prices(price, system_timestamp)")\
+        .select("symbol, options_historic_prices(price, system_timestamp)")\
         .in_("symbol", symbols)\
-        .order("system_timestamp", desc=True, foreign_table="market_prices")\
-        .limit(1, foreign_table="market_prices")\
+        .order("system_timestamp", desc=True, foreign_table="options_historic_prices")\
+        .limit(1, foreign_table="options_historic_prices")\
         .execute()
 
     prices_map = {}
     for item in response.data:
         symbol = item['symbol']
-        mps = item.get('market_prices')
+        mps = item.get('options_historic_prices')
         if mps and len(mps) > 0:
             prices_map[symbol] = float(mps[0]['price'])
             
@@ -271,16 +271,16 @@ def get_latest_prices_by_underlying(underlying_symbol: str) -> List[Dict[str, An
     client = get_client()
     
     response = client.table("options_contracts")\
-        .select("symbol, type, strike, market_prices(price, system_timestamp, broker_timestamp)")\
+        .select("symbol, type, strike, options_historic_prices(price, system_timestamp, broker_timestamp)")\
         .eq("underlying_symbol", underlying_symbol)\
         .order("strike", desc=False)\
-        .order("system_timestamp", desc=True, foreign_table="market_prices")\
-        .limit(1, foreign_table="market_prices")\
+        .order("system_timestamp", desc=True, foreign_table="options_historic_prices")\
+        .limit(1, foreign_table="options_historic_prices")\
         .execute()
         
     results = []
     for item in response.data:
-        mps = item.get('market_prices')
+        mps = item.get('options_historic_prices')
         price = 0.0
         timestamp = None
         
@@ -338,7 +338,7 @@ def insert_market_prices_batch(prices: List[PriceData]) -> None:
         return
         
     try:
-        response = client.table("market_prices").upsert(prices, ignore_duplicates=True).execute()
+        response = client.table("options_historic_prices").upsert(prices, ignore_duplicates=True).execute()
     except Exception as e:
         print(f"Error executing batch insert: {e}")
 

@@ -36,3 +36,5 @@ nav:
     - Fetch Data: api_reference/fetch_data.md
     - PnL Logic: api_reference/pnl.md
     - Main CLI: api_reference/main.md
+  - Proposals:
+    - Parallel Fetch History: proposals/parallel_fetch_history.md

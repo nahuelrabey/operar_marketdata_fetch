@@ -334,17 +334,18 @@ def fetch_historical_prices(symbol: str, date_from: datetime, date_to: datetime,
         print(f"Error parsing history for {symbol}: {e}")
         return []
 
-def process_historical_data(date_from_str: str, token: str) -> None:
+def process_historical_data(date_from_str: str, token: str, max_workers: int = 10) -> None:
     """
-    Orchestrates collecting historical data for all symbols.
+    Orchestrates collecting historical data for all symbols in parallel.
     
     1. Fetches all known symbols from DB.
-    2. Iterates and calls `fetch_historical_prices` for each.
-    3. Batch inserts results to DB.
+    2. Submits `fetch_historical_prices` to a ThreadPoolExecutor.
+    3. Accumulates results and batch inserts them to DB safely.
 
     Args:
         date_from_str: Start date in "YYYY-MM-DD" format.
         token: Access Token.
+        max_workers: Number of threads to run concurrently (default 10).
     """
     try:
         # Parse Dates
@@ -353,23 +354,41 @@ def process_historical_data(date_from_str: str, token: str) -> None:
         
         # 1. Get Symbols
         symbols = get_all_contract_symbols()
-        print(f"Found {len(symbols)} symbols to backfill.")
+        print(f"Found {len(symbols)} symbols. Starting parallel backfill with {max_workers} workers...")
         
-        # 2. Iterate
         total_records = 0
-        for symbol in symbols:
-            print(f"Fetching history for {symbol}...")
-            prices = fetch_historical_prices(symbol, date_from, date_to, token)
+        prices_accumulator: List[PriceData] = []
+        
+        # 2. Parallel Fetch
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_symbol = {
+                executor.submit(fetch_historical_prices, sym, date_from, date_to, token): sym
+                for sym in symbols
+            }
             
-            if prices:
-                # 3. Batch Insert
-                insert_market_prices_batch(prices)
-                count = len(prices)
-                total_records += count
-                print(f"  > Inserted {count} records.")
-            else:
-                print(f"  > No data.")
+            for future in as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    prices = future.result()
+                    if prices:
+                        prices_accumulator.extend(prices)
+                        print(f"  > Received {len(prices)} historical records for {symbol}.")
+                    else:
+                        print(f"  > No data for {symbol}.")
+                except Exception as e:
+                    print(f"Error fetching history for {symbol}: {e}")
                 
+                # 3. Intermediate Batch Insert
+                if len(prices_accumulator) >= 2000:
+                    insert_market_prices_batch(prices_accumulator)
+                    total_records += len(prices_accumulator)
+                    prices_accumulator = []
+
+        # 4. Final flush
+        if prices_accumulator:
+            insert_market_prices_batch(prices_accumulator)
+            total_records += len(prices_accumulator)
+
         print(f"Done. Total historical records inserted: {total_records}")
         
     except ValueError:
