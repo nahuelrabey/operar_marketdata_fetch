@@ -6,13 +6,13 @@ Welcome to the **Market Data Tool** documentation. This project helps in downloa
 
 ### Installation
 1. Clone the repository.
-2. Install dependencies: `pip install -r requirements.txt`.
+2. Install dependencies: `uv sync`.
 3. Set up `.env` with your `SUPABASE_URL`, `SUPABASE_KEY`, `IOL_USERNAME`, and `IOL_PASSWORD`.
 
 ### Basic Usage
 Fetch the latest option chain for a symbol:
 ```bash
-python src/main.py fetch chain GGAL
+uv run src/main.py fetch chain GGAL
 ```
 
 Explore the **User Guide** for more detailed instructions.

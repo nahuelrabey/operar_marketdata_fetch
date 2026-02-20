@@ -6,7 +6,7 @@ The tool exposes a Command Line Interface (CLI) via `src/main.py`.
 
 ### `fetch chain`
 Fetches the entire option chain for a given underlying symbol.
-*   **Usage**: `python src/main.py fetch chain <symbol> [--username USER] [--password PASS]`
+*   **Usage**: `uv run src/main.py fetch chain <symbol> [--username USER] [--password PASS]`
 *   **Arguments**:
     *   `symbol`: The underlying symbol (e.g., GGAL).
     *   `--username`: IOL Username (overrides environment variable).
@@ -14,14 +14,14 @@ Fetches the entire option chain for a given underlying symbol.
 
 ### `fetch contracts`
 Fetches data for a specific list of contracts defined in a JSON file.
-*   **Usage**: `python src/main.py fetch contracts [file] [token]`
+*   **Usage**: `uv run src/main.py fetch contracts [file] [token]`
 *   **Arguments**:
     *   `file`: Path to the JSON file containing contract symbols (default: `symbols.tmp.json`).
     *   `token`: Access token (optional).
 
 ### `fetch history`
 Fetches historical price data for all known contracts in the system.
-*   **Usage**: `python src/main.py fetch history [date_from] [--token TOKEN]`
+*   **Usage**: `uv run src/main.py fetch history [date_from] [--token TOKEN]`
 *   **Arguments**:
     *   `date_from`: Start date for the history in YYYY-MM-DD format (default: `2025-01-01`).
     *   `--token`: Access token override.
@@ -32,24 +32,24 @@ Fetches historical price data for all known contracts in the system.
 
 ### `strategy new`
 Creates a new strategy container.
-*   **Usage**: `python src/main.py strategy new --name NAME [--description DESC]`
+*   **Usage**: `uv run src/main.py strategy new --name NAME [--description DESC]`
 *   **Arguments**:
     *   `--name`: Name of the strategy.
     *   `--description`: Optional description.
 
 ### `strategy list`
 Lists all existing strategies.
-*   **Usage**: `python src/main.py strategy list`
+*   **Usage**: `uv run src/main.py strategy list`
 
 ### `strategy view`
 Views the details, composition, and P&L of a specific strategy. Generates a P&L curve plot.
-*   **Usage**: `python src/main.py strategy view <id>`
+*   **Usage**: `uv run src/main.py strategy view <id>`
 *   **Arguments**:
     *   `id`: The ID of the strategy.
 
 ### `strategy close`
 Marks a strategy as closed.
-*   **Usage**: `python src/main.py strategy close <id>`
+*   **Usage**: `uv run src/main.py strategy close <id>`
 *   **Arguments**:
     *   `id`: The ID of the strategy.
 
@@ -59,7 +59,7 @@ Marks a strategy as closed.
 
 ### `trade add`
 Adds a new trade (operation) to a strategy.
-*   **Usage**: `python src/main.py trade add --strategy ID --symbol SYMBOL --type TYPE --quantity QTY --price PRICE`
+*   **Usage**: `uv run src/main.py trade add --strategy ID --symbol SYMBOL --type TYPE --quantity QTY --price PRICE`
 *   **Arguments**:
     *   `--strategy`: The ID of the strategy.
     *   `--symbol`: The contract symbol (e.g., GGALC4600O).
@@ -69,7 +69,7 @@ Adds a new trade (operation) to a strategy.
 
 ### `trade remove`
 Removes a specific trade from a strategy.
-*   **Usage**: `python src/main.py trade remove --operation ID --strategy ID`
+*   **Usage**: `uv run src/main.py trade remove --operation ID --strategy ID`
 *   **Arguments**:
     *   `--operation`: The ID of the operation to remove.
     *   `--strategy`: The ID of the strategy (for verification context).
@@ -80,7 +80,7 @@ Removes a specific trade from a strategy.
 
 ### `token update`
 Updates the authentication token using credentials.
-*   **Usage**: `python src/main.py token update [--username USER] [--password PASS]`
+*   **Usage**: `uv run src/main.py token update [--username USER] [--password PASS]`
 *   **Arguments**:
     *   `--username`: IOL Username (overrides environment variable).
     *   `--password`: IOL Password (overrides environment variable).
