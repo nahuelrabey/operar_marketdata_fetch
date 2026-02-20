@@ -4,8 +4,16 @@ import csv
 import os
 import re
 from datetime import datetime
-from typing import List, Dict, Any, Tuple
-from src.type_definitions import ContractData, PriceData
+from typing import List, Dict, Any, Tuple, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from src.type_definitions import ContractData, PriceData, LatestPriceData
+from src.database import (
+    upsert_contract, 
+    insert_market_price, 
+    get_all_contract_symbols, 
+    insert_market_prices_batch, 
+    upsert_latest_prices_batch
+)
 
 # API Configuration
 BASE_URL = "https://api.invertironline.com/api/v2"
@@ -252,8 +260,6 @@ def process_symbols_list(file_path: str, token: str) -> None:
         file_path: Path to the JSON file containing a list of strings.
         token: Access Token.
     """
-    from src.database import upsert_contract, insert_market_price
-    
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             symbols = json.load(f)
@@ -340,8 +346,6 @@ def process_historical_data(date_from_str: str, token: str) -> None:
         date_from_str: Start date in "YYYY-MM-DD" format.
         token: Access Token.
     """
-    from src.database import get_all_contract_symbols, insert_market_prices_batch
-    
     try:
         # Parse Dates
         date_from = datetime.strptime(date_from_str, "%Y-%m-%d")
@@ -373,3 +377,114 @@ def process_historical_data(date_from_str: str, token: str) -> None:
     except Exception as e:
         print(f"Critical Error in process_historical_data: {e}")
 
+
+def _parse_latest_price(item: Dict[str, Any]) -> LatestPriceData:
+    """Parses IOL API response for latest price fields."""
+    cotizacion = item.get('cotizacion', item)
+    
+    # Extract timestamp
+    timestamp = cotizacion.get('fechaHora')
+    if timestamp and timestamp.startswith("0001-01-01"):
+        timestamp = None
+        
+    return {
+        'symbol': item.get('simbolo'),
+        'market_id': item.get('mercado'),
+        'last_price': cotizacion.get('ultimoPrecio'),
+        'bid_price': cotizacion.get('precioCompra'),
+        'offer_price': cotizacion.get('precioVenta'),
+        'timestamp': timestamp
+    }
+
+def _fetch_latest_data_safe(symbol: str, token: str) -> Optional[LatestPriceData]:
+    """Fetches latest data for a symbol, safely handling errors."""
+    try:
+        url = f"{BASE_URL}/bCBA/Titulos/{symbol}"
+        headers = {"Authorization": f"Bearer {token}"}
+        res = requests.get(url, headers=headers)
+        res.raise_for_status()
+        data = res.json()
+        return _parse_latest_price(data)
+    except Exception as e:
+        print(f"Failed to fetch {symbol}: {e}")
+        return None
+
+def batch_fetch_latest_prices(symbols: List[str], token: str, max_workers: int = 10) -> None:
+    """
+    Fetches latest prices (Last, Bid, Offer) for a list of symbols concurrently and writes to the database in batches.
+
+    ## Architecture & Implementation Details
+
+    This function utilizes a **concurrent execution model** to overcome network latency inherent in sequential API requests.
+
+    ### Concurrency
+    It uses `concurrent.futures.ThreadPoolExecutor` to spawn multiple worker threads (default: 10).
+    Each thread performs a blocking I/O call to the IOL API via `_fetch_latest_data_safe`.
+    
+    *   **Pros**: Drastically reduces total execution time for large lists of symbols.
+    *   **Cons**: Higher CPU/Memory overhead compared to sequential, though negligible for I/O bound tasks.
+
+    ### Batch Processing
+    To optimize database interactions, results are not written one-by-one. Instead:
+    1.  Results are accumulated in a local list `prices_accumulator`.
+    2.  When the accumulator reaches a threshold (e.g., 20 items), a **batch upsert** is triggered via `upsert_latest_prices_batch`.
+    3.  The accumulator is cleared, and the process continues.
+    4.  A final flush handles any remaining items after the loop.
+
+    ### Error Handling
+    Individual symbol fetch failures are caught within `_fetch_latest_data_safe` and return `None`.
+    These `None` results are filtered out, ensuring that one bad request does not crash the entire batch process.
+
+    Args:
+        symbols: List of contract symbols to fetch.
+        token: Valid IOL Access Token.
+        max_workers: Number of concurrent threads to use. Defaults to 10.
+    """
+    import random
+    
+    prices_accumulator: List[LatestPriceData] = []
+    
+    print(f"Starting batch fetch for {len(symbols)} symbols with {max_workers} workers...")
+    
+    # Debug sampling
+    debug_samples = []
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_symbol = {executor.submit(_fetch_latest_data_safe, sym, token): sym for sym in symbols}
+        
+        for future in as_completed(future_to_symbol):
+            data = future.result()
+            
+            if not data:
+                print("DEBUG: future.result() is None")
+                continue
+                
+            if not data.get('timestamp'):
+                print(f"DEBUG: Skipping {data.get('symbol')} - Missing timestamp. Raw: {data}")
+            
+            if data and data.get('timestamp'): 
+                # Ensure we respect DB constraints (non-null timestamp usually required or useful)
+                prices_accumulator.append(data)
+                
+                # Collect sample
+                if len(debug_samples) < 5:
+                    debug_samples.append((data['symbol'], data['timestamp']))
+                elif random.random() < 0.1: # Reservoir sampling-ish replacment for variety
+                    idx = random.randint(0, 4)
+                    debug_samples[idx] = (data['symbol'], data['timestamp'])
+            
+            # Intermediate batch save
+            if len(prices_accumulator) >= 20:
+                upsert_latest_prices_batch(prices_accumulator)
+                prices_accumulator = []
+
+    # Final save
+    if prices_accumulator:
+        upsert_latest_prices_batch(prices_accumulator)
+        
+    print("Batch fetch completed.")
+    
+    print("\n--- DEBUG: Random Sample of Fetched Data ---")
+    for s, t in debug_samples:
+        print(f"Symbol: {s}, Timestamp: {t}")
+    print("--------------------------------------------\n")

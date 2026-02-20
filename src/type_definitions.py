@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Optional, TypedDict, Union
+
 # --- Type Definitions (from modules_design.md) ---
 
 class ContractData(TypedDict):
@@ -15,6 +16,14 @@ class PriceData(TypedDict):
     broker_timestamp: Optional[str]
     system_timestamp: str
     volume: int
+
+class LatestPriceData(TypedDict):
+    symbol: str
+    market_id: Optional[str]
+    last_price: Optional[float]
+    bid_price: Optional[float]
+    offer_price: Optional[float]
+    timestamp: Optional[str]
 
 class OperationData(TypedDict):
     contract_symbol: str

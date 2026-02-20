@@ -311,6 +311,19 @@ def get_all_contract_symbols() -> List[str]:
     
     return [item['symbol'] for item in response.data]
 
+def get_fe_contract_symbols() -> List[str]:
+    """
+    Retrieves contract symbols from the 'options_contracts_fe' view.
+    
+    Returns:
+        List of symbol strings.
+    """
+    client = get_client()
+    # Query the view
+    response = client.table("options_contracts_fe").select("symbol").execute()
+    return [item['symbol'] for item in response.data]
+
+
 def insert_market_prices_batch(prices: List[PriceData]) -> None:
     """
     Batch inserts multiple market price records.
@@ -328,4 +341,19 @@ def insert_market_prices_batch(prices: List[PriceData]) -> None:
         response = client.table("market_prices").upsert(prices, ignore_duplicates=True).execute()
     except Exception as e:
         print(f"Error executing batch insert: {e}")
+
+def upsert_latest_prices_batch(prices: List[LatestPriceData]) -> None:
+    """
+    Batch upsert into 'latest_market_prices'.
+    
+    Args:
+        prices: List of LatestPriceData objects.
+    """
+    client = get_client()
+    if not prices:
+        return
+    try:
+        client.table("latest_market_prices").upsert(prices).execute()
+    except Exception as e:
+        print(f"Error executing batch upsert for latest prices: {e}")
 

@@ -2,7 +2,7 @@ import argparse
 import sys
 import os
 import matplotlib.pyplot as plt
-from typing import List
+from typing import List, Optional
 from tabulate import tabulate
 from datetime import datetime
 from dotenv import load_dotenv
@@ -46,6 +46,11 @@ def main():
     fetch_history = fetch_subparsers.add_parser("history", help="Fetch historical prices for all known contracts")
     fetch_history.add_argument("date_from", nargs='?', help="Start date YYYY-MM-DD (default: 2025-01-01)")
     fetch_history.add_argument("--token", help="Access Token override")
+    
+    # Fetch: Latest (NEW)
+    fetch_latest = fetch_subparsers.add_parser("latest", help="Fetch latest prices (Bid/Ask/Last) for list")
+    fetch_latest.add_argument("file", nargs="?", help="Path to symbols JSON file (Optional). If not provided, fetches from DB view.")
+    fetch_latest.add_argument("--token", help="Access Token")
 
     # --- Prices Command ---
     prices_parser = subparsers.add_parser("prices", help="List latest prices for a symbol")
@@ -110,6 +115,8 @@ def main():
             handle_fetch_contracts(args.file, args.token)
         elif args.fetch_command == "history":
             handle_fetch_history(args.date_from, args.token)
+        elif args.fetch_command == "latest":
+            handle_fetch_latest(args.file, args.token)
         else: 
             # Backwards compatibility or default behavior if user typed just 'fetch GGAL' 
             # (which is broken now that we have subparsers, but let's assume user follows new structure)
@@ -245,6 +252,41 @@ def handle_fetch_history(date_from: str = None, token_arg: str = None):
     
     print(f"Fetching historical data starting from {d_from}...")
     fetch_data.process_historical_data(d_from, token)
+
+def handle_fetch_latest(file_path: str, token_arg: str = None):
+    """
+    Handles the batch fetch for latest prices (Bid/Ask/Last).
+    
+    Args:
+        file_path: Path to the JSON file with symbols.
+        token_arg: Access token.
+    """
+    import json
+    
+    # Load token
+    token = token_arg
+    if not token and os.path.exists("token.txt"):
+        with open("token.txt", "r") as f:
+            token = f.read().strip()
+            
+    if not token:
+        print("Error: No access token provided and token.txt not found.")
+        return
+
+    # Load symbols
+    if file_path and os.path.exists(file_path):
+        print(f"Loading symbols from {file_path}")
+        with open(file_path, 'r', encoding='utf-8') as f:
+            symbols = json.load(f)
+    else:
+        print("Fetching symbols from DB (options_contracts_fe view)...")
+        symbols = database.get_fe_contract_symbols()
+        
+    if not symbols:
+        print("No symbols found.")
+        return
+
+    fetch_data.batch_fetch_latest_prices(symbols, token)
 
 def handle_prices(symbol: str):
     """
